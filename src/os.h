@@ -13,4 +13,14 @@ extern int os_halt(int status);
 
 extern int os_exit();
 
+extern int os_wait(void);
+
+extern int os_task_id(void);
+
+extern int os_sem_init(int cnt);
+
+extern int os_sem_use(int semid, int add);
+
+extern int os_sem_free(int semid);
+
 #endif /* EDUOS_OS_H */

@@ -33,6 +33,7 @@ extern void sched_wait(void);
 extern void sched_notify(struct sched_task *task);
 
 extern struct sched_task *sched_current(void);
+extern int sched_user_id(struct sched_task *task);
 
 extern void sched(void);
 
