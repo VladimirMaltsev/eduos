@@ -13,6 +13,7 @@
 #include "os.h"
 #include "os/sched.h"
 #include "os/irq.h"
+#include "os/sem.h"
 #include "os/syscall.h"
 
 typedef long(*sys_call_t)(int syscall,
@@ -24,6 +25,11 @@ typedef long(*sys_call_t)(int syscall,
 	x(write) \
 	x(read) \
 	x(halt) \
+	x(wait) \
+	x(task_id) \
+	x(sem_init) \
+	x(sem_use) \
+	x(sem_free) \
 
 
 
@@ -77,6 +83,44 @@ static long sys_halt(int syscall,
 	exit(arg1);
 }
 
+static long sys_wait(int syscall,
+		unsigned long arg1, unsigned long arg2,
+		unsigned long arg3, unsigned long arg4,
+		void *rest) {
+	irqmask_t irq = irq_disable();
+	sched();
+	irq_enable(irq);
+	return 0;
+}
+
+static long sys_task_id(int syscall,
+		unsigned long arg1, unsigned long arg2,
+		unsigned long arg3, unsigned long arg4,
+		void *rest) {
+	return sched_user_id(sched_current());
+}
+
+static long sys_sem_init(int syscall,
+		unsigned long arg1, unsigned long arg2,
+		unsigned long arg3, unsigned long arg4,
+		void *rest) {
+	return sem_init(arg1);
+}
+
+static long sys_sem_use(int syscall,
+		unsigned long arg1, unsigned long arg2,
+		unsigned long arg3, unsigned long arg4,
+		void *rest) {
+	return sem_use(arg1, arg2);
+}
+
+static long sys_sem_free(int syscall,
+		unsigned long arg1, unsigned long arg2,
+		unsigned long arg3, unsigned long arg4,
+		void *rest) {
+	return sem_free(arg1);
+}
+
 #define TABLE_LIST(name) sys_ ## name,
 static const sys_call_t sys_table[] = {
 	SYSCALL_X(TABLE_LIST)
@@ -108,6 +152,26 @@ int os_sys_read(char *buffer, int size) {
 
 int os_halt(int status) {
 	return os_syscall(os_syscall_nr_halt, status, 0, 0, 0, NULL);
+}
+
+int os_wait(void) {
+	return os_syscall(os_syscall_nr_wait, 0, 0, 0, 0, NULL);
+}
+
+int os_task_id(void) {
+	return os_syscall(os_syscall_nr_task_id, 0, 0, 0, 0, NULL);
+}
+
+int os_sem_init(int cnt) {
+	return os_syscall(os_syscall_nr_sem_init, cnt, 0, 0, 0, NULL);
+}
+
+int os_sem_use(int semid, int add) {
+	return os_syscall(os_syscall_nr_sem_use, semid, add, 0, 0, NULL);
+}
+
+int os_sem_free(int semid) {
+	return os_syscall(os_syscall_nr_sem_free, semid, 0, 0, 0, NULL);
 }
 
 static void os_sighnd(int sig, siginfo_t *info, void *ctx) {

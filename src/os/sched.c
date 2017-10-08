@@ -70,6 +70,10 @@ struct sched_task *sched_current(void) {
 	return sched_task_queue.current;
 }
 
+int sched_user_id(struct sched_task *task) {
+	return task - sched_task_queue.tasks;
+}
+
 static struct sched_task *next_task(void) {
 	struct sched_task *task;
 	TAILQ_FOREACH(task, &sched_task_queue.head, link) {
@@ -88,6 +92,9 @@ void sched(void) {
 
 	struct sched_task *cur = sched_current();
 	struct sched_task *next = next_task();
+
+	TAILQ_REMOVE(&sched_task_queue.head, cur, link);
+	TAILQ_INSERT_TAIL(&sched_task_queue.head, cur, link);
 
 	if (cur != next) {
 		sched_task_queue.current = next;
