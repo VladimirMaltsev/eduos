@@ -47,6 +47,11 @@ static int do_task(char *command) {
 		if (!strcmp(argv[0], app_list[i].name)) {
 			/* TODO run as sched task */
 			return app_list[i].fn(argc, argv);
+
+			// sched_add((void(*)(void)) app_list[i].fn, argv);
+			// sched_loop();
+			// return 0;
+
 			/* TODO exit */
 			/* TODO waitpid? */
 		}
