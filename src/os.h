@@ -7,4 +7,8 @@ extern int os_sys_read(char *buffer, int size);
 
 extern int os_halt(int status);
 
+extern int os_clone(void (*fn) (void *arg), void* arg);
+
+extern int os_waitpid(int task_id);
+
 #endif /* EDUOS_OS_H */

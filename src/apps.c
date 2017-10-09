@@ -39,7 +39,7 @@ static int do_task(char *command) {
 	char *argv[256];
 	int argc = 0;
 	while (arg) {
-		argv[argc++] = arg;
+		argv[argc++] = arg;	
 		arg = strtok_r(NULL, " ", &saveptr);
 	}
 
