@@ -1,5 +1,5 @@
 
-#include <assert.h>TOD
+#include <assert.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,13 +10,6 @@
 #include "os/sched.h"
 #include "os/irq.h"
 
-static struct {
-	struct sched_task tasks[256];
-	TAILQ_HEAD(listhead, sched_task) head;
-	struct sched_task *current;
-	struct sched_task *idle;
-} sched_task_queue;
-
 static struct sched_task *new_task(void) {
 	for (int i = 0; i < ARRAY_SIZE(sched_task_queue.tasks); ++i) {
 		if (sched_task_queue.tasks[i].state == SCHED_FINISH) {
@@ -25,6 +18,13 @@ static struct sched_task *new_task(void) {
 	}
 	return NULL;
 }
+
+static struct {
+	struct sched_task tasks[256];
+	TAILQ_HEAD(listhead, sched_task) head;
+	struct sched_task *current;
+	struct sched_task *idle;
+} sched_task_queue;
 
 void task_tramp(sched_task_entry_t entry, void *arg) {
 	irq_enable(IRQ_ALL);
@@ -57,6 +57,15 @@ struct sched_task *sched_add(sched_task_entry_t entry, void *arg) {
 	TAILQ_INSERT_TAIL(&sched_task_queue.head, task, link);
 
 	return task;
+}
+
+struct sched_task *sched_get_task_by_id(int task_id) {
+	struct sched_task *task = &sched_task_queue.tasks[task_id];
+	return task;
+}
+
+void sched_remove(struct sched_task *task) {
+	TAILQ_REMOVE(&sched_task_queue.head, task, link);
 }
 
 void sched_notify(struct sched_task *task) {

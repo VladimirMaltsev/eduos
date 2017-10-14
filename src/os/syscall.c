@@ -22,6 +22,8 @@ typedef long(*sys_call_t)(int syscall,
 	x(write) \
 	x(read) \
 	x(halt) \
+	x(waitpid) \
+	x(exit) \
 
 
 
@@ -83,7 +85,7 @@ static long sys_waitpid(int syscall,
 	irqmask_t cur = irq_disable();
 	
 	int task_id = arg1;
-	struct sched_task *task = sched_task_queue.tasks[task_id];
+	struct sched_task *task = sched_get_task_by_id(task_id);
 	
 	while (task->state != SCHED_FINISH) {
 		sched_wait();
@@ -92,6 +94,20 @@ static long sys_waitpid(int syscall,
 
 	irq_enable(cur);
 
+	return 0;
+}
+
+static long sys_exit(int syscall,
+	unsigned long arg1, unsigned long arg2,
+	unsigned long arg3, unsigned long arg4,
+	void *rest) {
+	
+	irqmask_t cur = irq_disable();
+
+	int task_id = arg1;
+	sched_remove(sched_get_task_by_id(task_id));
+
+	irq_enable(cur);
 	return 0;
 }
 
@@ -124,11 +140,17 @@ int os_sys_read(char *buffer, int size) {
 			0, 0, NULL);
 }
 
+int os_sys_waitpid(int task_id) {
+	return os_syscall(os_syscall_nr_waitpid, task_id, 0, 0, 0, NULL);
+}
+
+int os_sys_exit(int task_id) {
+	return os_syscall(os_syscall_nr_exit, task_id, 0, 0, 0, NULL);
+}
+
 int os_halt(int status) {
 	return os_syscall(os_syscall_nr_halt, status, 0, 0, 0, NULL);
 }
-
-
 
 static void os_sighnd(int sig, siginfo_t *info, void *ctx) {
 	ucontext_t *uc = (ucontext_t *) ctx;

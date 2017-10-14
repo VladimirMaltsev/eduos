@@ -47,7 +47,7 @@ static int do_task(char *command) {
 		if (!strcmp(argv[0], app_list[i].name)) {
 			/* TODO run as sched task */
 			return app_list[i].fn(argc, argv);
-			/* TODO exit */
+			/* TODO exit */	
 			/* TODO waitpid? */
 		}
 	}

@@ -22,6 +22,8 @@ struct sched_task {
 	enum sched_state state;
 };
 
+
+
 extern struct sched_task *sched_add(sched_task_entry_t entry, void *arg);
 extern void sched_wait(void);
 extern void sched_notify(struct sched_task *task);
@@ -32,5 +34,8 @@ extern void sched(void);
 
 extern void sched_init(void);
 extern void sched_loop(void);
+
+extern struct sched_task *sched_get_task_by_id(int task_id);
+extern void sched_remove(struct sched_task *task);
 
 #endif /* EDUOS_OS_SCHED_H */
