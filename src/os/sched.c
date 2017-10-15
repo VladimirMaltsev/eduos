@@ -1,23 +1,13 @@
-
-#include <assert.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 #include "util.h"
 
 #include "os.h"
 #include "os/sched.h"
 #include "os/irq.h"
-
-static struct sched_task *new_task(void) {
-	for (int i = 0; i < ARRAY_SIZE(sched_task_queue.tasks); ++i) {
-		if (sched_task_queue.tasks[i].state == SCHED_FINISH) {
-			return &sched_task_queue.tasks[i];
-		}
-	}
-	return NULL;
-}
 
 static struct {
 	struct sched_task tasks[256];
@@ -26,10 +16,36 @@ static struct {
 	struct sched_task *idle;
 } sched_task_queue;
 
+static struct sched_task *new_task(void) {
+	irqmask_t irq = irq_disable();
+	
+	for (int i = 0; i < ARRAY_SIZE(sched_task_queue.tasks); ++i) {
+		if (sched_task_queue.tasks[i].state == SCHED_FINISH) {
+			sched_task_queue.tasks[i].state = SCHED_READY;
+			sched_task_queue.tasks[i].id = i;
+			return &sched_task_queue.tasks[i];
+		}
+	}
+
+	irq_enable(irq);
+
+	return NULL;
+}
+
+struct sched_task *sched_get_task_by_id(int task_id) {
+	return &sched_task_queue.tasks[task_id];
+}
+
+void sched_remove(struct sched_task *task) {
+	task->state = SCHED_FINISH;
+	TAILQ_REMOVE(&sched_task_queue.head, task, link);
+}
+
 void task_tramp(sched_task_entry_t entry, void *arg) {
 	irq_enable(IRQ_ALL);
 	entry(arg);
-	abort();
+	// abort();
+	os_sys_exit();
 }
 
 static void task_init(struct sched_task *task) {
@@ -43,10 +59,8 @@ static void task_init(struct sched_task *task) {
 }
 
 struct sched_task *sched_add(sched_task_entry_t entry, void *arg) {
-	irqmask_t irq = irq_disable();
+	
 	struct sched_task *task = new_task();
-	task->state = SCHED_READY;
-	irq_enable(irq);
 
 	if (!task) {
 		abort();
@@ -59,21 +73,12 @@ struct sched_task *sched_add(sched_task_entry_t entry, void *arg) {
 	return task;
 }
 
-struct sched_task *sched_get_task_by_id(int task_id) {
-	struct sched_task *task = &sched_task_queue.tasks[task_id];
-	return task;
-}
-
-void sched_remove(struct sched_task *task) {
-	TAILQ_REMOVE(&sched_task_queue.head, task, link);
-}
-
 void sched_notify(struct sched_task *task) {
 	task->state = SCHED_READY;
 	TAILQ_INSERT_TAIL(&sched_task_queue.head, task, link);
 }
 
-void sched_wait(void) { //TODO check if irq is disable
+void sched_wait(void) { //TODO check that irq disabl
 	sched_current()->state = SCHED_SLEEP;
 	TAILQ_REMOVE(&sched_task_queue.head, sched_current(), link);
 }

@@ -20,6 +20,9 @@ struct sched_task {
 	ucontext_t ctx;
 	char stack[4096];
 	enum sched_state state;
+
+	struct sched_task *parent;
+	int id;
 };
 
 
