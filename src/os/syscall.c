@@ -24,6 +24,7 @@ typedef long(*sys_call_t)(int syscall,
 	x(halt) \
 	x(waitpid) \
 	x(exit) \
+	x(clone) \
 
 
 
@@ -70,17 +71,36 @@ static long sys_read(int syscall,
 	return bytes;
 }
 
+static long sys_clone(int syscall,
+	unsigned long arg1, unsigned long arg2,
+	unsigned long arg3, unsigned long arg4,
+	void *rest) {
+	
+	irqmask_t cur = irq_disable();
+
+	sched_task_entry_t entry = (sched_task_entry_t) arg1;
+	void *args = (void *) arg2;
+
+	struct sched_task *task = sched_add(entry, args);
+	task->parent = sched_current();
+
+	irq_enable(cur);
+
+	return task->id;
+}
+
 static long sys_halt(int syscall,
 		unsigned long arg1, unsigned long arg2,
 		unsigned long arg3, unsigned long arg4,
 		void *rest) {
+			
 	exit(arg1);
 }
 
 static long sys_waitpid(int syscall,
 	unsigned long arg1, unsigned long arg2,
 	unsigned long arg3, unsigned long arg4,
-	void *rest) {
+	void *rest) {	
 	
 	irqmask_t cur = irq_disable();
 	
@@ -102,12 +122,15 @@ static long sys_exit(int syscall,
 	unsigned long arg3, unsigned long arg4,
 	void *rest) {
 	
-	irqmask_t cur = irq_disable();
-
-	int task_id = arg1;
-	sched_remove(sched_get_task_by_id(task_id));
-
+	irqmask_t cur = irq_disable();	
+	
+	struct sched_task *task = sched_current();
+	sched_remove(task);
+	sched_notify(task->parent);
+	
 	irq_enable(cur);
+	sched();
+
 	return 0;
 }
 
@@ -144,8 +167,12 @@ int os_sys_waitpid(int task_id) {
 	return os_syscall(os_syscall_nr_waitpid, task_id, 0, 0, 0, NULL);
 }
 
-int os_sys_exit(int task_id) {
-	return os_syscall(os_syscall_nr_exit, task_id, 0, 0, 0, NULL);
+int os_sys_exit() {
+	return os_syscall(os_syscall_nr_exit, 0, 0, 0, 0, NULL);
+}
+
+int os_sys_clone(void (*entry)(void *arg), void *args) {
+	return sys_clone (os_syscall_nr_clone, (unsigned long) entry, (unsigned long) args, 0, 0, NULL);
 }
 
 int os_halt(int status) {
