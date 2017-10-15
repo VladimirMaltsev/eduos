@@ -31,11 +31,17 @@ static const struct {
 	{ "uptime", uptime },
 };
 
+struct params {
+	char *cmd;
+	int res;
+};
+
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(*a))
 
-static int do_task(char *command) {
+static void do_task(void *args) {
 	char *saveptr;
-	char *arg = strtok_r(command, " ", &saveptr);
+	struct params *p = (struct params*) args;
+	char *arg = strtok_r(p->cmd, " ", &saveptr);
 	char *argv[256];
 	int argc = 0;
 	while (arg) {
@@ -45,15 +51,10 @@ static int do_task(char *command) {
 
 	for (int i = 0; i < ARRAY_SIZE(app_list); ++i) {
 		if (!strcmp(argv[0], app_list[i].name)) {
-			/* TODO run as sched task */
-			return app_list[i].fn(argc, argv);
-
-			// sched_add((void(*)(void)) app_list[i].fn, argv);
-			// sched_loop();
-			// return 0;
-
-			/* TODO exit */
-			/* TODO waitpid? */
+			
+			p->res = app_list[i].fn(argc, argv);
+			return;
+			
 		}
 	}
 
@@ -61,7 +62,7 @@ static int do_task(char *command) {
 	strcat(msg, argv[0]);
 	strcat(msg, "\n");
 	os_sys_write(msg);
-	return 1;
+	return;
 }
 
 void shell(void *args) {
@@ -79,10 +80,15 @@ void shell(void *args) {
 
 		char *saveptr;
 		const char *comsep = "\n;";
-		char *cmd = strtok_r(buffer, comsep, &saveptr);
-		while (cmd) {
-			do_task(cmd);
-			cmd = strtok_r(NULL, comsep, &saveptr);
+		struct params args;
+		args.cmd = strtok_r(buffer, comsep, &saveptr);
+		while (args.cmd) {
+			
+			int task_id = os_clone(do_task, (void *)&args);
+
+			os_waitpid(task_id);
+			
+			args.cmd = strtok_r(NULL, comsep, &saveptr);
 		}
 	}
 

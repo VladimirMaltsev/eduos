@@ -45,7 +45,8 @@ void remove_task(struct sched_task *task) {
 void task_tramp(sched_task_entry_t entry, void *arg) {
 	irq_enable(IRQ_ALL);
 	entry(arg);
-	abort();
+	// abort();
+	os_exit();
 }
 
 static void task_init(struct sched_task *task) {
