@@ -23,6 +23,7 @@ static struct sched_task *new_task(void) {
 	for (int i = 0; i < ARRAY_SIZE(sched_task_queue.tasks); ++i) {
 		if (sched_task_queue.tasks[i].state == SCHED_FINISH) {
 			sched_task_queue.tasks[i].state = SCHED_READY;
+			sched_task_queue.tasks[i].id = i;
 			return &sched_task_queue.tasks[i];
 		}
 	}
@@ -30,6 +31,15 @@ static struct sched_task *new_task(void) {
 	irq_enable(irq);
 
 	return NULL;
+}
+
+struct sched_task *get_task(int task_id) {
+	return &sched_task_queue.tasks[task_id];
+}
+
+void remove_task(struct sched_task *task) {
+	task->state = SCHED_FINISH;
+	TAILQ_REMOVE(&sched_task_queue.head, task, link);
 }
 
 void task_tramp(sched_task_entry_t entry, void *arg) {

@@ -20,7 +20,12 @@ struct sched_task {
 	ucontext_t ctx;
 	char stack[4096];
 	enum sched_state state;
+	int id;
+	struct sched_task *parent;
 };
+
+extern struct sched_task *get_task(int task_id);
+void remove_task(struct sched_task *task);
 
 extern struct sched_task *sched_add(sched_task_entry_t entry, void *arg);
 extern void sched_wait(void);

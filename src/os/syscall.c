@@ -21,8 +21,10 @@ typedef long(*sys_call_t)(int syscall,
 #define SYSCALL_X(x) \
 	x(write) \
 	x(read) \
-	x(waitpid) \
 	x(halt) \
+	x(clone) \
+	x(waitpid) \
+	x(exit) \
 
 
 
@@ -69,19 +71,23 @@ static long sys_read(int syscall,
 	return bytes;
 }
 
-static long sys_halt(int syscall,
-		unsigned long arg1, unsigned long arg2,
-		unsigned long arg3, unsigned long arg4,
-		void *rest) {
-	exit(arg1);
-}
-
-
 static long sys_clone(int syscall,
 		unsigned long arg1, unsigned long arg2,
 		unsigned long arg3, unsigned long arg4,
 		void *rest) {
-//sched_add
+
+	irqmask_t cur = irq_disable();
+			
+	sched_task_entry_t entry = (sched_task_entry_t) arg1;
+	void *arg = (void *) arg2;
+
+	struct sched_task *task = sched_add(entry, arg);
+	task->parent = sched_current();
+
+	irq_enable(cur);
+
+	return task->id;
+
 }
 
 static long sys_waitpid(int syscall,
@@ -92,7 +98,7 @@ static long sys_waitpid(int syscall,
 	irqmask_t cur = irq_disable();
 
 	int task_id = arg1;
-	struct sched_task *task = sched_task.tasks[task_id];
+	struct sched_task *task = get_task(task_id);
 	
 	while (task->state != SCHED_FINISH) {
 		sched_wait();
@@ -102,6 +108,34 @@ static long sys_waitpid(int syscall,
 	irq_enable(cur);
 	
 	return 0;
+}
+
+static long sys_halt(int syscall,
+		unsigned long arg1, unsigned long arg2,
+		unsigned long arg3, unsigned long arg4,
+		void *rest) {
+	
+	exit(arg1);
+
+}
+
+static long sys_exit(int syscall,
+		unsigned long arg1, unsigned long arg2,
+		unsigned long arg3, unsigned long arg4,
+		void *rest) {
+
+	irqmask_t irq = irq_disable();
+
+	struct sched_task *cur_task = sched_current();
+	remove_task(cur_task);
+	sched_notify(cur_task->parent);
+
+	irq_enable(irq);
+
+	sched();
+
+	return 0;
+
 }
 
 #define TABLE_LIST(name) sys_ ## name,
@@ -133,12 +167,21 @@ int os_sys_read(char *buffer, int size) {
 			0, 0, NULL);
 }
 
+int os_clone(void (*fn) (void *arg), void *arg) {
+	return os_syscall(os_syscall_nr_clone, (unsigned long) fn, (unsigned long) arg,
+	0, 0, NULL);
+}
+
 int os_waitpid(int task_id) {
 	return os_syscall(os_syscall_nr_waitpid, task_id, 0, 0, 0, NULL);
 }
 
 int os_halt(int status) {
 	return os_syscall(os_syscall_nr_halt, status, 0, 0, 0, NULL);
+}
+
+int os_exit(int status) {
+	return os_syscall(os_syscall_nr_exit, 0, 0, 0, 0, NULL);
 }
 
 static void os_sighnd(int sig, siginfo_t *info, void *ctx) {
