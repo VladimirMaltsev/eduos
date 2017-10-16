@@ -24,6 +24,7 @@ static struct sched_task *new_task(void) {
 		if (sched_task_queue.tasks[i].state == SCHED_FINISH) {
 			sched_task_queue.tasks[i].state = SCHED_READY;
 			sched_task_queue.tasks[i].id = i;
+			irq_enable(irq);
 			return &sched_task_queue.tasks[i];
 		}
 	}
@@ -120,7 +121,6 @@ void sched_init(void) {
 
 	struct sched_task *task = new_task();
 	task_init(task);
-	task->state = SCHED_READY;
 	TAILQ_INSERT_TAIL(&sched_task_queue.head, task, link);
 
 	sched_task_queue.idle = task;

@@ -130,9 +130,9 @@ static long sys_exit(int syscall,
 	remove_task(cur_task);
 	sched_notify(cur_task->parent);
 
-	irq_enable(irq);
-
 	sched();
+
+	irq_enable(irq);
 
 	return 0;
 
