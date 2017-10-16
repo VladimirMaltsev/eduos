@@ -34,6 +34,10 @@ static struct sched_task *new_task(void) {
 	return NULL;
 }
 
+int get_task_id(struct sched_task * task) {
+	return task - sched_task_queue.tasks;
+}
+
 struct sched_task *get_task(int task_id) {
 	return &sched_task_queue.tasks[task_id];
 }

@@ -86,7 +86,7 @@ static long sys_clone(int syscall,
 
 	irq_enable(cur);
 
-	return task->id;
+	return get_task_id(task);
 
 }
 
