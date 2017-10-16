@@ -75,18 +75,18 @@ static long sys_clone(int syscall,
 	unsigned long arg1, unsigned long arg2,
 	unsigned long arg3, unsigned long arg4,
 	void *rest) {
-	
-	irqmask_t cur = irq_disable();
 
 	sched_task_entry_t entry = (sched_task_entry_t) arg1;
 	void *args = (void *) arg2;
+
+	irqmask_t cur = irq_disable();
 
 	struct sched_task *task = sched_add(entry, args);
 	task->parent = sched_current();
 
 	irq_enable(cur);
 
-	return task->id;
+	return sched_user_id (task);
 }
 
 static long sys_halt(int syscall,
@@ -106,7 +106,7 @@ static long sys_waitpid(int syscall,
 	
 	int task_id = arg1;
 	struct sched_task *task = sched_get_task_by_id(task_id);
-	
+	//add SCHED_EMPTY
 	while (task->state != SCHED_FINISH) {
 		sched_wait();
 		sched();
@@ -125,7 +125,8 @@ static long sys_exit(int syscall,
 	irqmask_t cur = irq_disable();	
 	
 	struct sched_task *task = sched_current();
-	sched_remove(task);
+	task->state = SCHED_FINISH;
+	sched_remove_task_from_queue(task);
 	sched_notify(task->parent);
 	
 	irq_enable(cur);

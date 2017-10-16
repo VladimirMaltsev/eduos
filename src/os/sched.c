@@ -22,21 +22,17 @@ static struct sched_task *new_task(void) {
 	for (int i = 0; i < ARRAY_SIZE(sched_task_queue.tasks); ++i) {
 		if (sched_task_queue.tasks[i].state == SCHED_FINISH) {
 			sched_task_queue.tasks[i].state = SCHED_READY;
-			sched_task_queue.tasks[i].id = i;
+			irq_enable(irq);
 			return &sched_task_queue.tasks[i];
 		}
 	}
 
-	irq_enable(irq);
+
 
 	return NULL;
 }
 
-struct sched_task *sched_get_task_by_id(int task_id) {
-	return &sched_task_queue.tasks[task_id];
-}
-
-void sched_remove(struct sched_task *task) {
+void sched_remove_task_from_queue(struct sched_task *task) {
 	task->state = SCHED_FINISH;
 	TAILQ_REMOVE(&sched_task_queue.head, task, link);
 }
@@ -59,7 +55,7 @@ static void task_init(struct sched_task *task) {
 }
 
 struct sched_task *sched_add(sched_task_entry_t entry, void *arg) {
-	
+	//irqmask_t irq = irq_disable;
 	struct sched_task *task = new_task();
 
 	if (!task) {
@@ -78,7 +74,7 @@ void sched_notify(struct sched_task *task) {
 	TAILQ_INSERT_TAIL(&sched_task_queue.head, task, link);
 }
 
-void sched_wait(void) { //TODO check that irq disabl
+void sched_wait(void) { //TODO check that irq disable
 	sched_current()->state = SCHED_SLEEP;
 	TAILQ_REMOVE(&sched_task_queue.head, sched_current(), link);
 }
@@ -134,4 +130,12 @@ void sched_loop(void) {
 	while (1) {
 		pause();
 	}
+}
+
+struct sched_task *sched_get_task_by_id(int task_id) {
+	return (sched_task_queue.tasks + task_id);
+}
+
+int sched_user_id(struct sched_task *task) {
+	return task - sched_task_queue.tasks;
 }

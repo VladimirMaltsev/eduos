@@ -20,9 +20,7 @@ struct sched_task {
 	ucontext_t ctx;
 	char stack[4096];
 	enum sched_state state;
-
 	struct sched_task *parent;
-	int id;
 };
 
 
@@ -39,6 +37,6 @@ extern void sched_init(void);
 extern void sched_loop(void);
 
 extern struct sched_task *sched_get_task_by_id(int task_id);
-extern void sched_remove(struct sched_task *task);
-
+extern void sched_remove_task_from_queue(struct sched_task *task);
+extern int sched_user_id(struct sched_task * task);
 #endif /* EDUOS_OS_SCHED_H */
