@@ -105,6 +105,8 @@ static long sys_waitpid(int syscall,
 		sched();
 	}
 
+	task->state = SCHED_EMPTY;
+
 	irq_enable(cur);
 	
 	return 0;

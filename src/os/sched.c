@@ -21,7 +21,7 @@ static struct sched_task *new_task(void) {
 	irqmask_t irq = irq_disable();
 	
 	for (int i = 0; i < ARRAY_SIZE(sched_task_queue.tasks); ++i) {
-		if (sched_task_queue.tasks[i].state == SCHED_FINISH) {
+		if (sched_task_queue.tasks[i].state == SCHED_EMPTY) {
 			sched_task_queue.tasks[i].state = SCHED_READY;
 			sched_task_queue.tasks[i].id = i;
 			irq_enable(irq);

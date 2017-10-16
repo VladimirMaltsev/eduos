@@ -7,6 +7,7 @@
 #include <ucontext.h>
 
 enum sched_state {
+	SCHED_EMPTY,
 	SCHED_FINISH,
 	SCHED_READY,
 	SCHED_SLEEP,
