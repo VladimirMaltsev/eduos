@@ -7,6 +7,7 @@
 #include <ucontext.h>
 
 enum sched_state {
+	SCHED_EMPTY,
 	SCHED_FINISH,
 	SCHED_READY,
 	SCHED_SLEEP,
@@ -20,7 +21,12 @@ struct sched_task {
 	ucontext_t ctx;
 	char stack[4096];
 	enum sched_state state;
+	struct sched_task *parent;
 };
+
+extern int get_task_id(struct sched_task *task);
+extern struct sched_task *get_task(int task_id);
+extern void remove_task(struct sched_task *task);
 
 extern struct sched_task *sched_add(sched_task_entry_t entry, void *arg);
 extern void sched_wait(void);
