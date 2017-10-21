@@ -106,11 +106,13 @@ static long sys_waitpid(int syscall,
 	
 	int task_id = arg1;
 	struct sched_task *task = sched_get_task_by_id(task_id);
-	//add SCHED_EMPTY
+	
 	while (task->state != SCHED_FINISH) {
 		sched_wait();
 		sched();
 	}
+
+	task->state = SCHED_EMPTY;
 
 	irq_enable(cur);
 

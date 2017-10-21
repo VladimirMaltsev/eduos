@@ -5,7 +5,7 @@ all : image
 ifneq ($(DEBUG),)
 CFLAGS += -g
 LDFLAGS += -g
-endif
+endif	
 
 CC = gcc
 CFLAGS += -std=c99 -I$(PWD) -Wall -Werror
