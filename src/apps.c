@@ -1,7 +1,12 @@
 
 #include <string.h>
+#include <stdio.h>
+
+#include <stdbool.h>
 
 #include "os.h"
+#include "os/sched.h"
+
 #include "apps.h"
 
 extern char *strtok_r(char *str, const char *delim, char **saveptr);
@@ -24,6 +29,55 @@ static int uptime(int argc, char *argv[]) {
 	return 1;
 }
 
+struct mutex_test_arg {
+	int semid;
+	int cnt;
+	bool fin;
+};
+
+static void mutex_test_task(void *_arg) {
+	struct mutex_test_arg *arg = _arg;
+	char msg[256];
+
+	while (!arg->fin) {
+		snprintf(msg, sizeof(msg), "%s: %d\n", __func__, os_task_id());
+		os_sys_write(msg);
+
+		os_sem_use(arg->semid, -1);
+
+		if (arg->cnt) {
+			os_sys_write("multiple process in critical section!");
+			os_halt(1);
+		}
+
+		++arg->cnt;
+		os_wait();
+		--arg->cnt;
+
+		os_sem_use(arg->semid, +1);
+	}
+
+	/*os_exit();*/
+}
+
+static int mutex_test(int argc, char *argv[]) {
+	struct mutex_test_arg arg;
+
+	arg.semid = os_sem_init(1);
+	arg.cnt = 0;
+	arg.fin = false;
+
+	// FIXME use user-space app creation
+	sched_add(mutex_test_task, &arg);
+	sched_add(mutex_test_task, &arg);
+
+	while (!arg.fin) {
+		os_wait();
+	}
+
+	return 0;
+}
+
 static const struct {
 	const char *name;
 	int(*fn)(int, char *[]);
@@ -31,6 +85,12 @@ static const struct {
 	{ "echo", echo },
 	{ "sleep", sleep },
 	{ "uptime", uptime },
+	{ "mutex_test", mutex_test },
+};
+
+struct params {
+	char *cmd;
+	int res;
 };
 
 
@@ -82,9 +142,9 @@ void shell(void *args) {
 		args.cmd = strtok_r(buffer, comsep, &saveptr);
 		while (args.cmd) {
 			
-			int task_id = os_sys_clone(do_task, (void *)&args);
+			int task_id = os_clone(do_task, (void *)&args);
 
-			os_sys_waitpid(task_id);
+			os_waitpid(task_id);
 			
 			args.cmd = strtok_r(NULL, comsep, &saveptr);
 		}

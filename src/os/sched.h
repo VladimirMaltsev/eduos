@@ -24,20 +24,20 @@ struct sched_task {
 	struct sched_task *parent;
 };
 
-
+extern int get_task_id(struct sched_task *task);
+extern struct sched_task *get_task_by_id(int task_id);
+extern void remove_task_from_queue(struct sched_task *task);
 
 extern struct sched_task *sched_add(sched_task_entry_t entry, void *arg);
 extern void sched_wait(void);
 extern void sched_notify(struct sched_task *task);
 
 extern struct sched_task *sched_current(void);
+extern int sched_user_id(struct sched_task *task);
 
 extern void sched(void);
 
 extern void sched_init(void);
 extern void sched_loop(void);
 
-extern struct sched_task *sched_get_task_by_id(int task_id);
-extern void sched_remove_task_from_queue(struct sched_task *task);
-extern int sched_user_id(struct sched_task * task);
 #endif /* EDUOS_OS_SCHED_H */

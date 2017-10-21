@@ -18,7 +18,6 @@ static struct {
 
 static struct sched_task *new_task(void) {
 	irqmask_t irq = irq_disable();
-	
 	for (int i = 0; i < ARRAY_SIZE(sched_task_queue.tasks); ++i) {
 		if (sched_task_queue.tasks[i].state == SCHED_EMPTY) {
 			sched_task_queue.tasks[i].state = SCHED_READY;
@@ -32,7 +31,15 @@ static struct sched_task *new_task(void) {
 	return NULL;
 }
 
-void sched_remove_task_from_queue(struct sched_task *task) {
+int get_task_id(struct sched_task * task) {
+	return task - sched_task_queue.tasks;
+}
+
+struct sched_task *get_task_by_id(int task_id) {
+	return &sched_task_queue.tasks[task_id];
+}
+
+void remove_task_from_queue(struct sched_task *task) {
 	task->state = SCHED_FINISH;
 	TAILQ_REMOVE(&sched_task_queue.head, task, link);
 }
@@ -41,7 +48,7 @@ void task_tramp(sched_task_entry_t entry, void *arg) {
 	irq_enable(IRQ_ALL);
 	entry(arg);
 	// abort();
-	os_sys_exit();
+	os_exit();
 }
 
 static void task_init(struct sched_task *task) {
@@ -55,7 +62,6 @@ static void task_init(struct sched_task *task) {
 }
 
 struct sched_task *sched_add(sched_task_entry_t entry, void *arg) {
-	//irqmask_t irq = irq_disable;
 	struct sched_task *task = new_task();
 
 	if (!task) {
@@ -70,17 +76,28 @@ struct sched_task *sched_add(sched_task_entry_t entry, void *arg) {
 }
 
 void sched_notify(struct sched_task *task) {
+	irqmask_t irq = irq_disable();
 	task->state = SCHED_READY;
 	TAILQ_INSERT_TAIL(&sched_task_queue.head, task, link);
+	irq_enable(irq);
 }
 
-void sched_wait(void) { //TODO check that irq disable
-	sched_current()->state = SCHED_SLEEP;
-	TAILQ_REMOVE(&sched_task_queue.head, sched_current(), link);
+void sched_wait(void) {
+	irqmask_t irq = irq_disable();
+	struct sched_task *cur = sched_current();
+	if (cur->state == SCHED_READY) {
+		TAILQ_REMOVE(&sched_task_queue.head, sched_current(), link);
+	}
+	cur->state = SCHED_SLEEP;
+	irq_enable(irq);
 }
 
 struct sched_task *sched_current(void) {
 	return sched_task_queue.current;
+}
+
+int sched_user_id(struct sched_task *task) {
+	return task - sched_task_queue.tasks;
 }
 
 static struct sched_task *next_task(void) {
@@ -102,6 +119,11 @@ void sched(void) {
 	struct sched_task *cur = sched_current();
 	struct sched_task *next = next_task();
 
+	if (cur->state == SCHED_READY) {
+		TAILQ_REMOVE(&sched_task_queue.head, cur, link);
+		TAILQ_INSERT_TAIL(&sched_task_queue.head, cur, link);
+	}
+
 	if (cur != next) {
 		sched_task_queue.current = next;
 		swapcontext(&cur->ctx, &next->ctx);
@@ -115,7 +137,6 @@ void sched_init(void) {
 
 	struct sched_task *task = new_task();
 	task_init(task);
-	task->state = SCHED_READY;
 	TAILQ_INSERT_TAIL(&sched_task_queue.head, task, link);
 
 	sched_task_queue.idle = task;

@@ -11,6 +11,7 @@
 #include "os.h"
 #include "os/sched.h"
 #include "os/irq.h"
+#include "os/sem.h"
 #include "os/syscall.h"
 
 typedef long(*sys_call_t)(int syscall,
@@ -22,10 +23,14 @@ typedef long(*sys_call_t)(int syscall,
 	x(write) \
 	x(read) \
 	x(halt) \
+	x(clone) \
 	x(waitpid) \
 	x(exit) \
-	x(clone) \
-
+	x(wait) \
+	x(task_id) \
+	x(sem_init) \
+	x(sem_use) \
+	x(sem_free) \
 
 
 #define ENUM_LIST(name) os_syscall_nr_ ## name,
@@ -72,29 +77,109 @@ static long sys_read(int syscall,
 }
 
 static long sys_clone(int syscall,
-	unsigned long arg1, unsigned long arg2,
-	unsigned long arg3, unsigned long arg4,
-	void *rest) {
-
-	sched_task_entry_t entry = (sched_task_entry_t) arg1;
-	void *args = (void *) arg2;
+		unsigned long arg1, unsigned long arg2,
+		unsigned long arg3, unsigned long arg4,
+		void *rest) {
 
 	irqmask_t cur = irq_disable();
 
-	struct sched_task *task = sched_add(entry, args);
+	sched_task_entry_t entry = (sched_task_entry_t) arg1;
+	void *arg = (void *) arg2;
+
+	struct sched_task *task = sched_add(entry, arg);
 	task->parent = sched_current();
 
 	irq_enable(cur);
 
-	return sched_user_id (task);
+	return get_task_id(task);
+
+}
+
+static long sys_waitpid(int syscall,
+		unsigned long arg1, unsigned long arg2,
+		unsigned long arg3, unsigned long arg4,
+		void *rest) {
+
+	irqmask_t cur = irq_disable();
+
+	int task_id = arg1;
+	struct sched_task *task = get_task(task_id);
+
+	while (task->state != SCHED_FINISH) {
+		sched_wait();
+		sched();
+	}
+
+	task->state = SCHED_EMPTY;
+
+	irq_enable(cur);
+
+	return 0;
 }
 
 static long sys_halt(int syscall,
 		unsigned long arg1, unsigned long arg2,
 		unsigned long arg3, unsigned long arg4,
 		void *rest) {
-			
 	exit(arg1);
+
+}
+
+static long sys_exit(int syscall,
+		unsigned long arg1, unsigned long arg2,
+		unsigned long arg3, unsigned long arg4,
+		void *rest) {
+
+	irqmask_t irq = irq_disable();
+
+	struct sched_task *cur_task = sched_current();
+	remove_task(cur_task);
+	sched_notify(cur_task->parent);
+
+	sched();
+
+	irq_enable(irq);
+
+	return 0;
+
+}
+
+static long sys_wait(int syscall,
+		unsigned long arg1, unsigned long arg2,
+		unsigned long arg3, unsigned long arg4,
+		void *rest) {
+	irqmask_t irq = irq_disable();
+	sched();
+	irq_enable(irq);
+	return 0;
+}
+
+static long sys_task_id(int syscall,
+		unsigned long arg1, unsigned long arg2,
+		unsigned long arg3, unsigned long arg4,
+		void *rest) {
+	return sched_user_id(sched_current());
+}
+
+static long sys_sem_init(int syscall,
+		unsigned long arg1, unsigned long arg2,
+		unsigned long arg3, unsigned long arg4,
+		void *rest) {
+	return sem_init(arg1);
+}
+
+static long sys_sem_use(int syscall,
+		unsigned long arg1, unsigned long arg2,
+		unsigned long arg3, unsigned long arg4,
+		void *rest) {
+	return sem_use(arg1, arg2);
+}
+
+static long sys_sem_free(int syscall,
+		unsigned long arg1, unsigned long arg2,
+		unsigned long arg3, unsigned long arg4,
+		void *rest) {
+	return sem_free(arg1);
 }
 
 static long sys_waitpid(int syscall,
@@ -166,20 +251,41 @@ int os_sys_read(char *buffer, int size) {
 			0, 0, NULL);
 }
 
-int os_sys_waitpid(int task_id) {
+int os_clone(void (*fn) (void *arg), void *arg) {
+	return os_syscall(os_syscall_nr_clone, (unsigned long) fn, (unsigned long) arg,
+	0, 0, NULL);
+}
+
+int os_waitpid(int task_id) {
 	return os_syscall(os_syscall_nr_waitpid, task_id, 0, 0, 0, NULL);
-}
-
-int os_sys_exit() {
-	return os_syscall(os_syscall_nr_exit, 0, 0, 0, 0, NULL);
-}
-
-int os_sys_clone(void (*entry)(void *arg), void *args) {
-	return sys_clone (os_syscall_nr_clone, (unsigned long) entry, (unsigned long) args, 0, 0, NULL);
 }
 
 int os_halt(int status) {
 	return os_syscall(os_syscall_nr_halt, status, 0, 0, 0, NULL);
+}
+
+int os_exit(int status) {
+	return os_syscall(os_syscall_nr_exit, 0, 0, 0, 0, NULL);
+}
+
+int os_wait(void) {
+	return os_syscall(os_syscall_nr_wait, 0, 0, 0, 0, NULL);
+}
+
+int os_task_id(void) {
+	return os_syscall(os_syscall_nr_task_id, 0, 0, 0, 0, NULL);
+}
+
+int os_sem_init(int cnt) {
+	return os_syscall(os_syscall_nr_sem_init, cnt, 0, 0, 0, NULL);
+}
+
+int os_sem_use(int semid, int add) {
+	return os_syscall(os_syscall_nr_sem_use, semid, add, 0, 0, NULL);
+}
+
+int os_sem_free(int semid) {
+	return os_syscall(os_syscall_nr_sem_free, semid, 0, 0, 0, NULL);
 }
 
 static void os_sighnd(int sig, siginfo_t *info, void *ctx) {
