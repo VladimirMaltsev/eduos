@@ -4,4 +4,4 @@
 
 make_eduos
 
-check_out ./image $CDIR/1
+check_out $CDIR/1 ./image
