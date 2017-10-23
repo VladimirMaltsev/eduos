@@ -7,6 +7,7 @@
 #include "os.h"
 
 #include "apps.h"
+#include <inttypes.h>
 
 extern char *strtok_r(char *str, const char *delim, char **saveptr);
 
@@ -19,11 +20,14 @@ static int echo(int argc, char *argv[]) {
 }
 
 static int sleep(int argc, char *argv[]) {
-	return 1;
+	int num = (int) strtoumax(argv[1], NULL, 10);
+	os_sleep(num);
+	return 0;
 }
 
 static int uptime(int argc, char *argv[]) {
-	return 1;
+	os_sys_write("Uptime: to be implemented.\n");
+	return 0;
 }
 
 struct mutex_test_arg {

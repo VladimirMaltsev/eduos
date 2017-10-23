@@ -23,4 +23,6 @@ extern int os_sem_use(int semid, int add);
 
 extern int os_sem_free(int semid);
 
+extern int os_sleep(int seconds);
+
 #endif /* EDUOS_OS_H */
