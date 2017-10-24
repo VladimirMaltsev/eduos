@@ -5,7 +5,6 @@
 #include <stdbool.h>
 
 #include "os.h"
-#include "os/sched.h"
 
 #include "apps.h"
 
@@ -65,13 +64,16 @@ static int mutex_test(int argc, char *argv[]) {
 	arg.cnt = 0;
 	arg.fin = false;
 
-	// FIXME use user-space app creation
-	sched_add(mutex_test_task, &arg);
-	sched_add(mutex_test_task, &arg);
+	int t1 = os_clone(mutex_test_task, &arg);
+	int t2 = os_clone(mutex_test_task, &arg);
 
-	while (!arg.fin) {
+	for (int i = 0; i < 10; i++) {
 		os_wait();
 	}
+	arg.fin = true;
+
+	os_waitpid(t1);
+	os_waitpid(t2);
 
 	return 0;
 }
