@@ -9,6 +9,19 @@
 #include "os.h"
 
 struct timer *single;
+double init_time;
+
+double get_init_time() {
+	return init_time;
+}
+
+double get_current_time() {
+	struct timeval cur_time;
+	gettimeofday(&cur_time, NULL);
+	double time = (double) cur_time.tv_usec;
+	time = cur_time.tv_sec + (time / 1000000);
+	return time;
+}
 
 static void os_sigalrmhnd(int signal, siginfo_t *info, void *ctx) {
 	struct itimerval cur_it;
@@ -56,6 +69,6 @@ void time_init(void) {
 		perror("SIGALRM set failed");
 		exit(1);
 	}
-
+	init_time = get_current_time();
 	set_timer(0);
 }

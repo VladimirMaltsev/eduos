@@ -14,6 +14,7 @@
 #include "os/sem.h"
 #include "os/syscall.h"
 #include "os/time.h"
+#include "util.h"
 
 typedef long(*sys_call_t)(int syscall,
 		unsigned long arg1, unsigned long arg2,
@@ -32,7 +33,8 @@ typedef long(*sys_call_t)(int syscall,
 	x(sem_init) \
 	x(sem_use) \
 	x(sem_free) \
-	x(sleep)
+	x(sleep) \
+	x(uptime)
 
 
 
@@ -207,6 +209,19 @@ static long sys_sleep(int syscall,
 	return 0;
 }
 
+static long sys_uptime(int syscall,
+	unsigned long arg1, unsigned long arg2,
+	unsigned long arg3, unsigned long arg4,
+	void *rest) {
+	double t = get_current_time() - get_init_time();
+
+	char *buffer = (char *) arg1;
+	snprintf(buffer, ARRAY_SIZE(buffer), "%f", t);
+
+	return t;
+}
+
+
 #define TABLE_LIST(name) sys_ ## name,
 static const sys_call_t sys_table[] = {
 	SYSCALL_X(TABLE_LIST)
@@ -275,6 +290,10 @@ int os_sem_free(int semid) {
 
 int os_sleep(int sec) {
 	return os_syscall(os_syscall_nr_sleep, (unsigned long) sec, 0, 0, 0, NULL);
+}
+
+int os_uptime(char *buffer) {
+	return os_syscall(os_syscall_nr_uptime, (unsigned long) buffer, 0, 0, 0, NULL);
 }
 
 static void os_sighnd(int sig, siginfo_t *info, void *ctx) {

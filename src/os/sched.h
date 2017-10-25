@@ -29,7 +29,7 @@ extern struct sched_task *get_task(int task_id);
 extern void remove_task(struct sched_task *task);
 
 extern struct sched_task *sched_add(sched_task_entry_t entry, void *arg);
-extern void sched_wait();
+extern void sched_wait(void);
 extern void sched_notify(struct sched_task *task);
 
 extern struct sched_task *sched_current(void);

@@ -26,7 +26,10 @@ static int sleep(int argc, char *argv[]) {
 }
 
 static int uptime(int argc, char *argv[]) {
-	os_sys_write("Uptime: to be implemented.\n");
+	char time_string[32];
+	os_uptime(time_string);
+	os_sys_write(time_string);
+	os_sys_write("\n");
 	return 0;
 }
 
