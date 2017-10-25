@@ -19,6 +19,8 @@ static int echo(int argc, char *argv[]) {
 	return 0;
 }
 
+/* FIXME delete this include */
+#include <stdlib.h>
 static int sleep(int argc, char *argv[]) {
 	int num = (int) strtoumax(argv[1], NULL, 10);
 	os_sleep(num);
@@ -115,10 +117,10 @@ static void do_task(void *args) {
 
 	for (int i = 0; i < ARRAY_SIZE(app_list); ++i) {
 		if (!strcmp(argv[0], app_list[i].name)) {
-			
+
 			p->res = app_list[i].fn(argc, argv);
 			return;
-			
+
 		}
 	}
 
@@ -147,11 +149,11 @@ void shell(void *args) {
 		struct params args;
 		args.cmd = strtok_r(buffer, comsep, &saveptr);
 		while (args.cmd) {
-			
+
 			int task_id = os_clone(do_task, (void *)&args);
 
 			os_waitpid(task_id);
-			
+
 			args.cmd = strtok_r(NULL, comsep, &saveptr);
 		}
 	}
