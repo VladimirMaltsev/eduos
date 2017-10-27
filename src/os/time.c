@@ -9,18 +9,20 @@
 #include "os.h"
 
 struct timer *single;
-double init_time;
+long init_time;
 
-double get_init_time() {
+long timeval_to_usec(struct timeval t) {
+	return (long) (t.tv_sec*1000000 + t.tv_usec);
+}
+
+long get_init_time() {
 	return init_time;
 }
 
-double get_current_time() {
+long get_current_time() {
 	struct timeval cur_time;
 	gettimeofday(&cur_time, NULL);
-	double time = (double) cur_time.tv_usec;
-	time = cur_time.tv_sec + (time / 1000000);
-	return time;
+	return timeval_to_usec(cur_time);
 }
 
 static void os_sigalrmhnd(int signal, siginfo_t *info, void *ctx) {

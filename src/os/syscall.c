@@ -213,10 +213,7 @@ static long sys_uptime(int syscall,
 	unsigned long arg1, unsigned long arg2,
 	unsigned long arg3, unsigned long arg4,
 	void *rest) {
-	double t = get_current_time() - get_init_time();
-
-	char *buffer = (char *) arg1;
-	snprintf(buffer, ARRAY_SIZE(buffer), "%f", t);
+	long t = get_current_time() - get_init_time();
 
 	return t;
 }
@@ -292,8 +289,8 @@ int os_sleep(int sec) {
 	return os_syscall(os_syscall_nr_sleep, (unsigned long) sec, 0, 0, 0, NULL);
 }
 
-int os_uptime(char *buffer) {
-	return os_syscall(os_syscall_nr_uptime, (unsigned long) buffer, 0, 0, 0, NULL);
+int os_uptime(void) {
+	return os_syscall(os_syscall_nr_uptime, 0, 0, 0, 0, NULL);
 }
 
 static void os_sighnd(int sig, siginfo_t *info, void *ctx) {

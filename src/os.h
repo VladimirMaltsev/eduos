@@ -25,6 +25,6 @@ extern int os_sem_free(int semid);
 
 extern int os_sleep(int seconds);
 
-extern int os_uptime(char *buffer);
+extern int os_uptime(void);
 
 #endif /* EDUOS_OS_H */

@@ -9,6 +9,8 @@
 #include "apps.h"
 #include <inttypes.h>
 
+#include "util.h"
+
 extern char *strtok_r(char *str, const char *delim, char **saveptr);
 
 static int echo(int argc, char *argv[]) {
@@ -19,8 +21,6 @@ static int echo(int argc, char *argv[]) {
 	return 0;
 }
 
-/* FIXME delete this include */
-#include <stdlib.h>
 static int sleep(int argc, char *argv[]) {
 	int num = (int) strtoumax(argv[1], NULL, 10);
 	os_sleep(num);
@@ -28,10 +28,11 @@ static int sleep(int argc, char *argv[]) {
 }
 
 static int uptime(int argc, char *argv[]) {
-	char time_string[32];
-	os_uptime(time_string);
+	char time_string[20];
+	double uptime = (double) os_uptime() / 1000000;
+	snprintf(time_string, ARRAY_SIZE(time_string), "%f", uptime);
+	strcat(time_string, "\n");
 	os_sys_write(time_string);
-	os_sys_write("\n");
 	return 0;
 }
 
@@ -101,8 +102,6 @@ struct params {
 	char *cmd;
 	int res;
 };
-
-#define ARRAY_SIZE(a) (sizeof(a) / sizeof(*a))
 
 static void do_task(void *args) {
 	char *saveptr;
