@@ -21,7 +21,6 @@ static int echo(int argc, char *argv[]) {
 
 static int sleep(int argc, char *argv[]) {
 	
-
 	return 1;
 }
 
@@ -87,12 +86,6 @@ static const struct {
 	{ "uptime", uptime },
 	{ "mutex_test", mutex_test },
 };
-
-struct params {
-	char *cmd;
-	int res;
-};
-
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(*a))
 

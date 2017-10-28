@@ -96,10 +96,6 @@ struct sched_task *sched_current(void) {
 	return sched_task_queue.current;
 }
 
-int sched_user_id(struct sched_task *task) {
-	return task - sched_task_queue.tasks;
-}
-
 static struct sched_task *next_task(void) {
 	struct sched_task *task;
 	TAILQ_FOREACH(task, &sched_task_queue.head, link) {
@@ -153,10 +149,3 @@ void sched_loop(void) {
 	}
 }
 
-struct sched_task *sched_get_task_by_id(int task_id) {
-	return (sched_task_queue.tasks + task_id);
-}
-
-int sched_user_id(struct sched_task *task) {
-	return task - sched_task_queue.tasks;
-}

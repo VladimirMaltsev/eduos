@@ -6,11 +6,17 @@
 
 #include "os/time.h"
 
+static struct {
+	struct timer timers[256];
+	TAILQ_HEAD(listhead, timer) head;
+	struct timer *current;
+} timers_list;
+
 static void os_sigalrmhnd(int signal, siginfo_t *info, void *ctx) {
 	struct itimerval cur_it;
 	getitimer(ITIMER_REAL, &cur_it);
-	/*fprintf(stderr, "%s: tv_usec=%ld\n", __func__, cur_it.it_value.tv_usec);*/
-}
+	fprintf(stderr, "%s: tv_usec=%ld\n", __func__, cur_it.it_value.tv_usec);*/
+}	
 
 
 void time_init(void) {

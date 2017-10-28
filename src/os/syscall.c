@@ -103,7 +103,7 @@ static long sys_waitpid(int syscall,
 	irqmask_t cur = irq_disable();
 
 	int task_id = arg1;
-	struct sched_task *task = get_task(task_id);
+	struct sched_task *task = get_task_by_id(task_id);
 
 	while (task->state != SCHED_FINISH) {
 		sched_wait();
@@ -126,22 +126,21 @@ static long sys_halt(int syscall,
 }
 
 static long sys_exit(int syscall,
-		unsigned long arg1, unsigned long arg2,
-		unsigned long arg3, unsigned long arg4,
-		void *rest) {
-
-	irqmask_t irq = irq_disable();
-
-	struct sched_task *cur_task = sched_current();
-	remove_task(cur_task);
-	sched_notify(cur_task->parent);
-
+	unsigned long arg1, unsigned long arg2,
+	unsigned long arg3, unsigned long arg4,
+	void *rest) {
+	
+	irqmask_t cur = irq_disable();	
+	
+	struct sched_task *task = sched_current();
+	task->state = SCHED_FINISH;
+	remove_task_from_queue(task);
+	sched_notify(task->parent);
+	
+	irq_enable(cur);
 	sched();
 
-	irq_enable(irq);
-
 	return 0;
-
 }
 
 static long sys_wait(int syscall,
@@ -158,7 +157,22 @@ static long sys_task_id(int syscall,
 		unsigned long arg1, unsigned long arg2,
 		unsigned long arg3, unsigned long arg4,
 		void *rest) {
-	return sched_user_id(sched_current());
+	return get_task_id(sched_current());
+}
+
+static long sys_sleep(int sleep) {
+	irqmask_t cur = irq_disable();
+
+	struct_current()->timer.ticks_left = sleep * 1000;
+	wait();
+	sched();
+
+	int time = get_time();
+	while (get_time() < time + sleep){
+		sched();
+	}
+
+	irq_enable(cur);
 }
 
 static long sys_sem_init(int syscall,
@@ -182,45 +196,7 @@ static long sys_sem_free(int syscall,
 	return sem_free(arg1);
 }
 
-static long sys_waitpid(int syscall,
-	unsigned long arg1, unsigned long arg2,
-	unsigned long arg3, unsigned long arg4,
-	void *rest) {	
-	
-	irqmask_t cur = irq_disable();
-	
-	int task_id = arg1;
-	struct sched_task *task = sched_get_task_by_id(task_id);
-	
-	while (task->state != SCHED_FINISH) {
-		sched_wait();
-		sched();
-	}
 
-	task->state = SCHED_EMPTY;
-
-	irq_enable(cur);
-
-	return 0;
-}
-
-static long sys_exit(int syscall,
-	unsigned long arg1, unsigned long arg2,
-	unsigned long arg3, unsigned long arg4,
-	void *rest) {
-	
-	irqmask_t cur = irq_disable();	
-	
-	struct sched_task *task = sched_current();
-	task->state = SCHED_FINISH;
-	sched_remove_task_from_queue(task);
-	sched_notify(task->parent);
-	
-	irq_enable(cur);
-	sched();
-
-	return 0;
-}
 
 #define TABLE_LIST(name) sys_ ## name,
 static const sys_call_t sys_table[] = {
