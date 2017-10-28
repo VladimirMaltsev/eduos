@@ -5,7 +5,6 @@
 #include <stdbool.h>
 
 #include "os.h"
-#include "os/sched.h"
 
 #include "apps.h"
 
@@ -19,13 +18,24 @@ static int echo(int argc, char *argv[]) {
 	return 0;
 }
 
+/* FIXME delete this include */
+#include <stdlib.h>
 static int sleep(int argc, char *argv[]) {
+<<<<<<< HEAD
 	
 	return 1;
+=======
+	/* FIXME implement sleep via eduos scheduler */
+	/* FIXME get time to sleep from arguments */
+	system("sleep 2");
+	return 0;
+>>>>>>> upstream/master
 }
 
 static int uptime(int argc, char *argv[]) {
-	return 1;
+	/* FIXME print time passed from eduos kernel start, implement solely via eduos calls */
+	system("date +%s.%N");
+	return 0;
 }
 
 struct mutex_test_arg {
@@ -66,13 +76,16 @@ static int mutex_test(int argc, char *argv[]) {
 	arg.cnt = 0;
 	arg.fin = false;
 
-	// FIXME use user-space app creation
-	sched_add(mutex_test_task, &arg);
-	sched_add(mutex_test_task, &arg);
+	int t1 = os_clone(mutex_test_task, &arg);
+	int t2 = os_clone(mutex_test_task, &arg);
 
-	while (!arg.fin) {
+	for (int i = 0; i < 10; i++) {
 		os_wait();
 	}
+	arg.fin = true;
+
+	os_waitpid(t1);
+	os_waitpid(t2);
 
 	return 0;
 }
@@ -102,10 +115,10 @@ static void do_task(void *args) {
 
 	for (int i = 0; i < ARRAY_SIZE(app_list); ++i) {
 		if (!strcmp(argv[0], app_list[i].name)) {
-			
+
 			p->res = app_list[i].fn(argc, argv);
 			return;
-			
+
 		}
 	}
 
@@ -134,11 +147,11 @@ void shell(void *args) {
 		struct params args;
 		args.cmd = strtok_r(buffer, comsep, &saveptr);
 		while (args.cmd) {
-			
+
 			int task_id = os_clone(do_task, (void *)&args);
 
 			os_waitpid(task_id);
-			
+
 			args.cmd = strtok_r(NULL, comsep, &saveptr);
 		}
 	}

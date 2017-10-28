@@ -19,7 +19,7 @@ typedef void (*sched_task_entry_t)(void *arg);
 struct sched_task {
 	TAILQ_ENTRY(sched_task) link;
 	ucontext_t ctx;
-	char stack[4096];
+	char stack[0x10000];
 	enum sched_state state;
 	struct sched_task *parent;
 };
