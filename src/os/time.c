@@ -8,6 +8,8 @@
 #include "os/sched.h"
 #include "os.h"
 
+extern void sched_tramp(void);
+
 struct timer *single;
 long init_time;
 
@@ -25,18 +27,24 @@ long get_current_time() {
 	return timeval_to_usec(cur_time);
 }
 
-static void os_sigalrmhnd(int signal, siginfo_t *info, void *ctx) {
-	struct itimerval cur_it;
-	getitimer(ITIMER_REAL, &cur_it);
-	//TODO: remove timer
-
-	//TODO: move into function
+static void handle_timers() {
+	//TODO: go through all list of timers and decrement.
+	//TODO: remove timer and notify task
 	single->sec_left = 0;
 	if(single->task != NULL && single->task->state == SCHED_SLEEP) {
 		sched_notify(single->task);
-		sched();
 	}
-	//TODO: go through all list of timers and decrement.
+}
+
+static void os_sigalrmhnd(int signal, siginfo_t *info, void *ctx) {
+	handle_timers();
+
+	ucontext_t *uc = (ucontext_t *) ctx;
+	greg_t *regs = uc->uc_mcontext.gregs;
+
+	regs[REG_RSP] -= 8;
+	*(unsigned long*) regs[REG_RSP] = regs[REG_RIP];
+	regs[REG_RIP] = (greg_t) sched_tramp;
 }
 
 struct timer *new_timer(int seconds, struct sched_task *task, struct timer *tmr) {
