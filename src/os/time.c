@@ -9,7 +9,10 @@
 #include "os/sched.h"
 #include "os.h"
 
-#define INTERVAL_USEC 10000 //alarm rings every 10ms
+#define USEC_IN_SEC 1000000
+
+#define INTERVAL_SEC 1
+#define INTERVAL_USEC 0
 
 struct {
 	TAILQ_HEAD(timerlist, timer) head;
@@ -17,11 +20,10 @@ struct {
 
 extern void sched_tramp(void);
 
-struct timer *single;
 long uptime;
 
 long timeval_to_usec(struct timeval t) {
-	return (long) (t.tv_sec*1000000 + t.tv_usec);
+	return (long) (t.tv_sec*USEC_IN_SEC + t.tv_usec);
 }
 
 long time_since_last_irq() {
@@ -35,13 +37,11 @@ long get_uptime(void) {
 	return uptime + t;
 }
 
-static void handle_timers(long time_delta) {
-	//TODO: go through all list of timers and decrement.
-	//TODO: remove timer and notify task
+void decrement_timers_and_notify(long delta) {
 	struct timer *cur, *tmp;
 	TAILQ_FOREACH_SAFE(cur, &timers.head, link, tmp) {
 		assert(cur->usec_left > 0);
-		cur->usec_left -= time_delta;
+		cur->usec_left -= delta;
 		if(cur->usec_left <= 0 && cur->task->state == SCHED_SLEEP) {
 			sched_notify(cur->task);
 			TAILQ_REMOVE(&timers.head, cur, link); //mb do removals after sigalrmhnd
@@ -49,8 +49,24 @@ static void handle_timers(long time_delta) {
 	}
 }
 
+
+
+void handle_timers(long time_delta) {
+	decrement_timers_and_notify(time_delta);
+	if(TAILQ_EMPTY(&timers.head)) 
+		set_timer_repeat(INTERVAL_SEC, INTERVAL_USEC);
+	else {
+		long smallest_time = TAILQ_FIRST(&timers.head)->usec_left;
+		set_timer_once(smallest_time / USEC_IN_SEC, smallest_time % USEC_IN_SEC);
+	}
+}
+
 static void os_sigalrmhnd(int signal, siginfo_t *info, void *ctx) {
-	long time_delta = time_since_last_irq();
+	long time_delta;
+	if(TAILQ_EMPTY(&timers.head))
+		time_delta = INTERVAL_SEC*USEC_IN_SEC + INTERVAL_USEC;
+	else
+		time_delta = TAILQ_FIRST(&timers.head)->usec_left;
 	uptime += time_delta;
 	handle_timers(time_delta);
 
@@ -62,10 +78,27 @@ static void os_sigalrmhnd(int signal, siginfo_t *info, void *ctx) {
 	regs[REG_RIP] = (greg_t) sched_tramp;
 }
 
+void insert_sorted(struct timer *tmr) {
+	struct timer *cur;
+	TAILQ_FOREACH(cur, &timers.head, link) {
+		if(tmr->usec_left < cur->usec_left) {
+			TAILQ_INSERT_BEFORE(cur, tmr, link);
+			return;
+		}
+	}
+	TAILQ_INSERT_TAIL(&timers.head, tmr, link);
+}
+
 struct timer *new_timer(int seconds, struct sched_task *task, struct timer *tmr) {
-	//TODO: insert into list, if the lowest time, then set timer accordingly
-	*tmr = (struct timer) {.usec_left = seconds*1000000, .task = task};
-	TAILQ_INSERT_HEAD(&timers.head, tmr, link);
+	*tmr = (struct timer) {.usec_left = seconds*USEC_IN_SEC, .task = task};
+	if(TAILQ_EMPTY(&timers.head) || (tmr->usec_left < TAILQ_FIRST(&timers.head)->usec_left)) {
+		uptime += time_since_last_irq();
+		decrement_timers_and_notify(time_since_last_irq());
+		TAILQ_INSERT_HEAD(&timers.head, tmr, link);
+		set_timer_once(tmr->usec_left / USEC_IN_SEC, tmr->usec_left % USEC_IN_SEC);
+	} else {
+		insert_sorted(tmr);
+	}
 
 	return single;
 }
@@ -85,8 +118,8 @@ int set_timer(struct timeval value, struct timeval interval) {
 }
 
 int set_timer_once(int sec, int usec) {
-	struct timeval interval = {.tv_sec = sec, .tv_usec = usec};
-	struct timeval value = {0, 0};
+	struct timeval value = {.tv_sec = sec, .tv_usec = usec};
+	struct timeval interval = {0, 0};
 	return set_timer(value, interval);
 }
 
@@ -109,5 +142,5 @@ void time_init(void) {
 	}
 
 	uptime = 0;
-	set_timer_repeat(0, INTERVAL_USEC);
+	set_timer_repeat(INTERVAL_SEC, INTERVAL_USEC);
 }
