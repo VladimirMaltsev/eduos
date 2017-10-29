@@ -199,7 +199,7 @@ static long sys_sleep(int syscall,
 	struct timer tmr;
 
 	new_timer(seconds, sched_current(), &tmr);
-	while(tmr.sec_left > 0) {
+	while(tmr.usec_left > 0) {
 		sched_wait();
 		sched();
 	}
@@ -213,7 +213,7 @@ static long sys_uptime(int syscall,
 	unsigned long arg1, unsigned long arg2,
 	unsigned long arg3, unsigned long arg4,
 	void *rest) {
-	long t = get_current_time() - get_init_time();
+	long t = get_uptime();
 
 	return t;
 }

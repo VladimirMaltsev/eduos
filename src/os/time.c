@@ -8,35 +8,41 @@
 #include "os/sched.h"
 #include "os.h"
 
+#define INTERVAL_USEC 10000 //alarm rings every 10ms
+
 extern void sched_tramp(void);
 
 struct timer *single;
-long init_time;
+long uptime;
 
 long timeval_to_usec(struct timeval t) {
 	return (long) (t.tv_sec*1000000 + t.tv_usec);
 }
 
-long get_init_time() {
-	return init_time;
+long time_since_last_irq() {
+	struct itimerval cur_it;
+	getitimer(ITIMER_REAL, &cur_it);
+	return timeval_to_usec(cur_it.it_value);
 }
 
-long get_current_time() {
-	struct timeval cur_time;
-	gettimeofday(&cur_time, NULL);
-	return timeval_to_usec(cur_time);
+long get_uptime(void) {
+	long t = time_since_last_irq();
+	return uptime + t;
 }
 
 static void handle_timers() {
 	//TODO: go through all list of timers and decrement.
 	//TODO: remove timer and notify task
-	single->sec_left = 0;
-	if(single->task != NULL && single->task->state == SCHED_SLEEP) {
-		sched_notify(single->task);
+	if(single != NULL && single->usec_left >= 0) {
+		single->usec_left -= time_since_last_irq();
+		if(single->usec_left < 0 && single->task->state == SCHED_SLEEP) {
+			sched_notify(single->task);
+		}
 	}
 }
 
 static void os_sigalrmhnd(int signal, siginfo_t *info, void *ctx) {
+	uptime += time_since_last_irq();
 	handle_timers();
 
 	ucontext_t *uc = (ucontext_t *) ctx;
@@ -49,16 +55,16 @@ static void os_sigalrmhnd(int signal, siginfo_t *info, void *ctx) {
 
 struct timer *new_timer(int seconds, struct sched_task *task, struct timer *tmr) {
 	//TODO: insert into list, if the lowest time, then set timer accordingly
-	*tmr = (struct timer) {.sec_left = seconds, .task = task};
+	*tmr = (struct timer) {.usec_left = seconds*1000000, .task = task};
 	single = tmr;
 
-	set_timer(seconds);
 	return single;
 }
 
-int set_timer(int seconds) {
+int set_timer(struct timeval value, struct timeval interval) {
 	const struct itimerval setup_it = {
-		.it_value    = { seconds /*sec*/, 0 /*usec*/},
+		.it_value    = value,
+		.it_interval = interval
 	};
 
 	if (-1 == setitimer(ITIMER_REAL, &setup_it, NULL)) {
@@ -67,6 +73,17 @@ int set_timer(int seconds) {
 	}
 
 	return 0;
+}
+
+int set_timer_once(int sec, int usec) {
+	struct timeval interval = {.tv_sec = sec, .tv_usec = usec};
+	struct timeval value = {0, 0};
+	return set_timer(value, interval);
+}
+
+int set_timer_repeat(int sec, int usec) {
+	struct timeval t = {.tv_sec = sec, .tv_usec = usec};
+	return set_timer(t, t);
 }
 
 
@@ -79,6 +96,7 @@ void time_init(void) {
 		perror("SIGALRM set failed");
 		exit(1);
 	}
-	init_time = get_current_time();
-	set_timer(0);
+
+	uptime = 0;
+	set_timer_repeat(0, INTERVAL_USEC);
 }
