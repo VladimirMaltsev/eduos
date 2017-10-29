@@ -10,6 +10,8 @@ struct timer {
     struct sched_task *task;
 };
 
+extern void bot_half(void);
+
 extern long get_uptime(void);
 
 int set_timer_repeat(int sec, int usec);

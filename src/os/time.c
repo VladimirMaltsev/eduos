@@ -14,13 +14,14 @@
 #define INTERVAL_SEC 1
 #define INTERVAL_USEC 0
 
+extern void bot_half_tramp(void);
+
 struct {
 	TAILQ_HEAD(timerlist, timer) head;
 } timers;
 
-extern void sched_tramp(void);
-
 long uptime;
+long last_time;
 
 long timeval_to_usec(struct timeval t) {
 	return (long) (t.tv_sec*USEC_IN_SEC + t.tv_usec);
@@ -44,38 +45,44 @@ void decrement_timers_and_notify(long delta) {
 		cur->usec_left -= delta;
 		if(cur->usec_left <= 0 && cur->task->state == SCHED_SLEEP) {
 			sched_notify(cur->task);
-			TAILQ_REMOVE(&timers.head, cur, link); //mb do removals after sigalrmhnd
+			TAILQ_REMOVE(&timers.head, cur, link);
 		}
 	}
 }
 
+void top_half() {
+	if(TAILQ_EMPTY(&timers.head))
+		last_time = INTERVAL_SEC*USEC_IN_SEC + INTERVAL_USEC;
+	else
+		last_time = TAILQ_FIRST(&timers.head)->usec_left;
+	uptime += last_time;	
 
-
-void handle_timers(long time_delta) {
-	decrement_timers_and_notify(time_delta);
-	if(TAILQ_EMPTY(&timers.head)) 
+	//if there is no second timer, then set default interval
+	if(TAILQ_EMPTY(&timers.head)) {
 		set_timer_repeat(INTERVAL_SEC, INTERVAL_USEC);
-	else {
-		long smallest_time = TAILQ_FIRST(&timers.head)->usec_left;
-		set_timer_once(smallest_time / USEC_IN_SEC, smallest_time % USEC_IN_SEC);
+	} else {
+		struct timer *second = TAILQ_NEXT(TAILQ_FIRST(&timers.head), link);
+		if (second == NULL)
+			set_timer_repeat(INTERVAL_SEC, INTERVAL_USEC);
+		else 
+			set_timer_once(second->usec_left / USEC_IN_SEC, second->usec_left % USEC_IN_SEC);
 	}
 }
 
+void bot_half() {
+	decrement_timers_and_notify(last_time);
+	sched();
+}
+
 static void os_sigalrmhnd(int signal, siginfo_t *info, void *ctx) {
-	long time_delta;
-	if(TAILQ_EMPTY(&timers.head))
-		time_delta = INTERVAL_SEC*USEC_IN_SEC + INTERVAL_USEC;
-	else
-		time_delta = TAILQ_FIRST(&timers.head)->usec_left;
-	uptime += time_delta;
-	handle_timers(time_delta);
+	top_half();
 
 	ucontext_t *uc = (ucontext_t *) ctx;
 	greg_t *regs = uc->uc_mcontext.gregs;
 
 	regs[REG_RSP] -= 8;
 	*(unsigned long*) regs[REG_RSP] = regs[REG_RIP];
-	regs[REG_RIP] = (greg_t) sched_tramp;
+	regs[REG_RIP] = (greg_t) bot_half_tramp;
 }
 
 void insert_sorted(struct timer *tmr) {
