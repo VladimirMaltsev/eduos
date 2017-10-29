@@ -150,7 +150,10 @@ void shell(void *args) {
 
 			int task_id = os_clone(do_task, (void *)&args);
 
-			os_waitpid(task_id);
+			int status = os_waitpid(task_id);
+			if(status != 0) {
+				os_halt(status);
+			}
 
 			args.cmd = strtok_r(NULL, comsep, &saveptr);
 		}
