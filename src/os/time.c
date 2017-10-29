@@ -89,7 +89,7 @@ void insert_sorted(struct timer *tmr) {
 	TAILQ_INSERT_TAIL(&timers.head, tmr, link);
 }
 
-struct timer *new_timer(int seconds, struct sched_task *task, struct timer *tmr) {
+int *new_timer(int seconds, struct sched_task *task, struct timer *tmr) {
 	*tmr = (struct timer) {.usec_left = seconds*USEC_IN_SEC, .task = task};
 	if(TAILQ_EMPTY(&timers.head) || (tmr->usec_left < TAILQ_FIRST(&timers.head)->usec_left)) {
 		uptime += time_since_last_irq();
@@ -100,7 +100,7 @@ struct timer *new_timer(int seconds, struct sched_task *task, struct timer *tmr)
 		insert_sorted(tmr);
 	}
 
-	return single;
+	return 0;
 }
 
 int set_timer(struct timeval value, struct timeval interval) {
