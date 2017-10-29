@@ -15,6 +15,10 @@ extern int os_exit();
 
 extern int os_wait(void);
 
+extern int os_get_file_descr(const char *path, const char *mode);
+
+extern int os_fclose_by_descr(int fd);
+
 extern int os_task_id(void);
 
 extern int os_sem_init(int cnt);

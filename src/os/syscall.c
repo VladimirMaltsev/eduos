@@ -27,6 +27,8 @@ typedef long(*sys_call_t)(int syscall,
 	x(waitpid) \
 	x(exit) \
 	x(wait) \
+	x(get_file_descr) \
+	x(fclose_by_descr) \
 	x(task_id) \
 	x(sem_init) \
 	x(sem_use) \
@@ -155,6 +157,27 @@ static long sys_wait(int syscall,
 	return 0;
 }
 
+static long sys_get_file_descr(int syscall,
+		unsigned long arg1, unsigned long arg2,
+		unsigned long arg3, unsigned long arg4,
+		void *rest) {
+
+	char *path = (char *) arg1;
+	char *mode = (char *) arg2;
+	
+	int d = fileno(fopen(path, mode));
+	
+	return d;
+}
+
+static long sys_fclose_by_descr(int syscall,
+	unsigned long arg1, unsigned long arg2,
+	unsigned long arg3, unsigned long arg4,
+	void *rest) {
+		
+	return close((int)arg1);
+}
+  
 static long sys_task_id(int syscall,
 		unsigned long arg1, unsigned long arg2,
 		unsigned long arg3, unsigned long arg4,
@@ -224,9 +247,16 @@ int os_sys_write(int fd, const char *msg) {
 	return os_syscall(os_syscall_nr_write, fd, (unsigned long) msg, 0, 0, NULL);
 }
 
-int os_sys_read( int fd, char *buffer, int size) {
-	return os_syscall(os_syscall_nr_read, fd, (unsigned long) buffer, 
-		size, 0, NULL);
+int os_sys_read(int fd, char *buffer, int size) {
+	return os_syscall(os_syscall_nr_read, fd, (unsigned long) buffer, size, 0, NULL);
+}
+
+int os_get_file_descr(const char *path, const char *mode) {
+	return os_syscall(os_syscall_nr_get_file_descr, (unsigned long) path, (unsigned long) mode, 0, 0, NULL);
+}
+
+int os_fclose_by_descr(int fd) {
+	return os_syscall(os_syscall_nr_fclose_by_descr, fd, 0, 0, 0, NULL);
 }
 
 int os_clone(void (*fn) (void *arg), void *arg) {
