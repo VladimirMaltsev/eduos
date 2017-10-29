@@ -47,8 +47,9 @@ static long sys_write(int syscall,
 		unsigned long arg1, unsigned long arg2,
 		unsigned long arg3, unsigned long arg4,
 		void *rest) {
-	const char *msg = (const char *) arg1;
-	return errwrap(write(STDOUT_FILENO, msg, strlen(msg)));
+	int fd = (int) arg1;
+	const char *msg = (const char *) arg2;
+	return errwrap(write(fd, msg, strlen(msg)));
 }
 
 static void read_irq_hnd(void *arg) {
@@ -59,12 +60,13 @@ static long sys_read(int syscall,
 		unsigned long arg1, unsigned long arg2,
 		unsigned long arg3, unsigned long arg4,
 		void *rest) {
-	void *buffer = (void *) arg1;
-	const int size = (int) arg2;
-
+	int fd = (int) arg1;
+	void *buffer = (void *) arg2;
+	const int size = (int) arg3;
+    
 	irqmask_t cur = irq_disable();
 
-	int bytes = errwrap(read(STDIN_FILENO, buffer, size));
+	int bytes = errwrap(read(fd, buffer, size));
 	while (bytes == -EAGAIN) {
 		irq_set_hnd(read_irq_hnd, sched_current());
 		sched_wait();
@@ -159,7 +161,7 @@ static long sys_task_id(int syscall,
 		void *rest) {
 	return get_task_id(sched_current());
 }
-
+/*
 static long sys_sleep(int sleep) {
 	irqmask_t cur = irq_disable();
 
@@ -174,7 +176,7 @@ static long sys_sleep(int sleep) {
 
 	irq_enable(cur);
 }
-
+*/
 static long sys_sem_init(int syscall,
 		unsigned long arg1, unsigned long arg2,
 		unsigned long arg3, unsigned long arg4,
@@ -218,13 +220,13 @@ static long os_syscall(int syscall,
 	return ret;
 }
 
-int os_sys_write(const char *msg) {
-	return os_syscall(os_syscall_nr_write, (unsigned long) msg, 0, 0, 0, NULL);
+int os_sys_write(int fd, const char *msg) {
+	return os_syscall(os_syscall_nr_write, fd, (unsigned long) msg, 0, 0, NULL);
 }
 
-int os_sys_read(char *buffer, int size) {
-	return os_syscall(os_syscall_nr_read, (unsigned long) buffer, size,
-			0, 0, NULL);
+int os_sys_read( int fd, char *buffer, int size) {
+	return os_syscall(os_syscall_nr_read, fd, (unsigned long) buffer, 
+		size, 0, NULL);
 }
 
 int os_clone(void (*fn) (void *arg), void *arg) {

@@ -10,6 +10,11 @@
 #include "apps.h"
 
 int main(int argc, char *argv[]) {
+	/*
+	char *directory = ".";
+	if (argc > 0)
+		directory = *(argv + 1);
+	*/
 	irq_init();
 
 	syscall_init();
