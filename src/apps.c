@@ -34,21 +34,20 @@ static int uptime(int argc, char *argv[]) {
 }
 
 static int cat(int argc, char *argv[]) {
-	if (argc <= 1) 
-		return 0;
-	const char *file_name = argv[1];
-	FILE *file = fopen(file_name, "r");
-	int fd = fileno(file);
-	char buff[256];
-	int bytes;
-	while ((bytes = os_sys_read(fd, buff, sizeof(buff)))) {
-		if (bytes < sizeof(buff)) {
-			buff[bytes] = '\0';
+	for (int i = 1; i < argc; i ++) {
+		const char *file_name = argv[i];
+		int fd = os_get_file_descr(file_name, "r");
+		char buff[256];
+		int bytes;
+		while ((bytes = os_sys_read(fd, buff, sizeof(buff)))) {
+			if (bytes < sizeof(buff)) {
+				buff[bytes] = '\0';
+			}
+			os_sys_write(1, buff);
 		}
-		os_sys_write(1, buff);
+		
+		os_fclose_by_descr (fd);
 	}
-	
-	fclose (file);
 	return 0;
 }
 
