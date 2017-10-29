@@ -3,12 +3,17 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <sys/time.h>
+#include <assert.h>
 
 #include "os/time.h"
 #include "os/sched.h"
 #include "os.h"
 
 #define INTERVAL_USEC 10000 //alarm rings every 10ms
+
+struct {
+	TAILQ_HEAD(timerlist, timer) head;
+} timers;
 
 extern void sched_tramp(void);
 
@@ -30,20 +35,24 @@ long get_uptime(void) {
 	return uptime + t;
 }
 
-static void handle_timers() {
+static void handle_timers(long time_delta) {
 	//TODO: go through all list of timers and decrement.
 	//TODO: remove timer and notify task
-	if(single != NULL && single->usec_left >= 0) {
-		single->usec_left -= time_since_last_irq();
-		if(single->usec_left < 0 && single->task->state == SCHED_SLEEP) {
-			sched_notify(single->task);
+	struct timer *cur, *tmp;
+	TAILQ_FOREACH_SAFE(cur, &timers.head, link, tmp) {
+		assert(cur->usec_left > 0);
+		cur->usec_left -= time_delta;
+		if(cur->usec_left <= 0 && cur->task->state == SCHED_SLEEP) {
+			sched_notify(cur->task);
+			TAILQ_REMOVE(&timers.head, cur, link); //mb do removals after sigalrmhnd
 		}
 	}
 }
 
 static void os_sigalrmhnd(int signal, siginfo_t *info, void *ctx) {
-	uptime += time_since_last_irq();
-	handle_timers();
+	long time_delta = time_since_last_irq();
+	uptime += time_delta;
+	handle_timers(time_delta);
 
 	ucontext_t *uc = (ucontext_t *) ctx;
 	greg_t *regs = uc->uc_mcontext.gregs;
@@ -56,7 +65,7 @@ static void os_sigalrmhnd(int signal, siginfo_t *info, void *ctx) {
 struct timer *new_timer(int seconds, struct sched_task *task, struct timer *tmr) {
 	//TODO: insert into list, if the lowest time, then set timer accordingly
 	*tmr = (struct timer) {.usec_left = seconds*1000000, .task = task};
-	single = tmr;
+	TAILQ_INSERT_HEAD(&timers.head, tmr, link);
 
 	return single;
 }
@@ -88,6 +97,8 @@ int set_timer_repeat(int sec, int usec) {
 
 
 void time_init(void) {
+	TAILQ_INIT(&timers.head);
+
 	struct sigaction alrmact = {
 		.sa_sigaction = os_sigalrmhnd,
 	};

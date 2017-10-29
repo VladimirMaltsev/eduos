@@ -2,7 +2,10 @@
 #ifndef EDUOS_OS_TIME_H
 #define EDUOS_OS_TIME_H
 
+#include "third-party/queue.h"
+
 struct timer {
+    TAILQ_ENTRY(timer) link;
     long usec_left;
     struct sched_task *task;
 };
