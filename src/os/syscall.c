@@ -140,9 +140,10 @@ static long sys_exit(int syscall,
 
 	struct sched_task *cur_task = sched_current();
 	cur_task->exit_status = status;
-	remove_task(cur_task);
+	remove_task_from_queue(cur_task);
 	sched_notify(cur_task->parent);
 
+	irq_enable(irq);
 	sched();
 
 	return 0;
