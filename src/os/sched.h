@@ -22,6 +22,7 @@ struct sched_task {
 	char stack[0x10000];
 	enum sched_state state;
 	struct sched_task *parent;
+	int exit_status;
 };
 
 extern int get_task_id(struct sched_task *task);

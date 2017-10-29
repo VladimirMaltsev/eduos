@@ -11,7 +11,7 @@ extern int os_waitpid(int task_id);
 
 extern int os_halt(int status);
 
-extern int os_exit();
+extern int os_exit(int status);
 
 extern int os_wait(void);
 

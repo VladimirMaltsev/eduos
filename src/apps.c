@@ -97,7 +97,6 @@ static const struct {
 
 struct params {
 	char *cmd;
-	int res;
 };
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(*a))
@@ -116,7 +115,7 @@ static void do_task(void *args) {
 	for (int i = 0; i < ARRAY_SIZE(app_list); ++i) {
 		if (!strcmp(argv[0], app_list[i].name)) {
 
-			p->res = app_list[i].fn(argc, argv);
+			os_exit(app_list[i].fn(argc, argv));
 			return;
 
 		}
@@ -150,7 +149,10 @@ void shell(void *args) {
 
 			int task_id = os_clone(do_task, (void *)&args);
 
-			os_waitpid(task_id);
+			int status = os_waitpid(task_id);
+			if(status != 0) {
+				os_halt(status);
+			}
 
 			args.cmd = strtok_r(NULL, comsep, &saveptr);
 		}
