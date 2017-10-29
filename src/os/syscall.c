@@ -118,7 +118,7 @@ static long sys_waitpid(int syscall,
 
 	irq_enable(cur);
 
-	return 0;
+	return task->exit_status;
 }
 
 static long sys_halt(int syscall,
@@ -130,18 +130,19 @@ static long sys_halt(int syscall,
 }
 
 static long sys_exit(int syscall,
-	unsigned long arg1, unsigned long arg2,
-	unsigned long arg3, unsigned long arg4,
-	void *rest) {
-	
-	irqmask_t cur = irq_disable();	
-	
-	struct sched_task *task = sched_current();
-	task->state = SCHED_FINISH;
-	remove_task_from_queue(task);
-	sched_notify(task->parent);
-	
-	irq_enable(cur);
+		unsigned long arg1, unsigned long arg2,
+		unsigned long arg3, unsigned long arg4,
+		void *rest) {
+
+	irqmask_t irq = irq_disable();
+
+	int status = (int) arg1;
+
+	struct sched_task *cur_task = sched_current();
+	cur_task->exit_status = status;
+	remove_task(cur_task);
+	sched_notify(cur_task->parent);
+
 	sched();
 
 	return 0;
@@ -273,7 +274,7 @@ int os_halt(int status) {
 }
 
 int os_exit(int status) {
-	return os_syscall(os_syscall_nr_exit, 0, 0, 0, 0, NULL);
+	return os_syscall(os_syscall_nr_exit, status, 0, 0, 0, NULL);
 }
 
 int os_wait(void) {
