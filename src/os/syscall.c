@@ -142,9 +142,9 @@ static long sys_exit(int syscall,
 	remove_task(cur_task);
 	sched_notify(cur_task->parent);
 
-	irq_enable(irq);
 	sched();
-
+	irq_enable(irq);
+	
 	return 0;
 }
 
@@ -185,19 +185,7 @@ static long sys_task_id(int syscall,
 		void *rest) {
 	return get_task_id(sched_current());
 }
-/*
-static long sys_sleep(int sleep) {
-	irqmask_t cur = irq_disable();
-	struct_current()->timer.ticks_left = sleep * 1000;
-	wait();
-	sched();
-	int time = get_time();
-	while (get_time() < time + sleep){
-		sched();
-	}
-	irq_enable(cur);
-}
-*/
+
 static long sys_sem_init(int syscall,
 		unsigned long arg1, unsigned long arg2,
 		unsigned long arg3, unsigned long arg4,
