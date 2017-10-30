@@ -23,6 +23,7 @@ struct sched_task {
 	enum sched_state state;
 	struct sched_task *parent;
 	int exit_status;
+	struct wait_queue *wq;
 };
 
 extern int get_task_id(struct sched_task *task);

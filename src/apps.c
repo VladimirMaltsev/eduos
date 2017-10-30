@@ -35,7 +35,7 @@ static int uptime(int argc, char *argv[]) {
 
 static int cat(int argc, char *argv[]) {
 	for (int i = 1; i < argc; i ++) {
-		const char *file_name = "test/t/cat/rootfs" + argv[i];
+		const char *file_name = argv[i];
 		int fd = os_get_file_descr(file_name, "r");
 		char buff[256];
 		int bytes;
