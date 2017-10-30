@@ -1,4 +1,4 @@
-
+#define _POSIX_SOURCE
 #include <string.h>
 #include <stdio.h>
 
@@ -12,8 +12,8 @@ extern char *strtok_r(char *str, const char *delim, char **saveptr);
 
 static int echo(int argc, char *argv[]) {
 	for (int i = 1; i < argc; ++i) {
-		os_sys_write(argv[i]);
-		os_sys_write(i == argc - 1 ? "\n" : " ");
+		os_sys_write(1, argv[i]);
+		os_sys_write(1, i == argc - 1 ? "\n" : " ");
 	}
 	return 0;
 }
@@ -33,6 +33,24 @@ static int uptime(int argc, char *argv[]) {
 	return 0;
 }
 
+static int cat(int argc, char *argv[]) {
+	for (int i = 1; i < argc; i ++) {
+		const char *file_name = argv[i];
+		int fd = os_get_file_descr(file_name, "r");
+		char buff[256];
+		int bytes;
+		while ((bytes = os_sys_read(fd, buff, sizeof(buff)))) {
+			if (bytes < sizeof(buff)) {
+				buff[bytes] = '\0';
+			}
+			os_sys_write(1, buff);
+		}
+		
+		os_fclose_by_descr (fd);
+	}
+	return 0;
+}
+
 struct mutex_test_arg {
 	int semid;
 	int cnt;
@@ -45,12 +63,12 @@ static void mutex_test_task(void *_arg) {
 
 	while (!arg->fin) {
 		snprintf(msg, sizeof(msg), "%s: %d\n", __func__, os_task_id());
-		os_sys_write(msg);
+		os_sys_write(1, msg);
 
 		os_sem_use(arg->semid, -1);
 
 		if (arg->cnt) {
-			os_sys_write("multiple process in critical section!");
+			os_sys_write(1, "multiple process in critical section!");
 			os_halt(1);
 		}
 
@@ -90,6 +108,7 @@ static const struct {
 	int(*fn)(int, char *[]);
 } app_list[] = {
 	{ "echo", echo },
+	{ "cat", cat },
 	{ "sleep", sleep },
 	{ "uptime", uptime },
 	{ "mutex_test", mutex_test },
@@ -124,15 +143,17 @@ static void do_task(void *args) {
 	char msg[256] = "No such function: ";
 	strcat(msg, argv[0]);
 	strcat(msg, "\n");
-	os_sys_write(msg);
+	os_sys_write(1, msg);
 	return;
 }
 
 void shell(void *args) {
-	while (1) {
-		os_sys_write("> ");
+	//os_sys_write(1, "\n\n			╔═══╗╔══╗─╔╗╔╗╔══╗╔══╗\n			║╔══╝║╔╗╚╗║║║║║╔╗║║╔═╝\n			║╚══╗║║╚╗║║║║║║║║║║╚═╗\n			║╔══╝║║─║║║║║║║║║║╚═╗║\n			║╚══╗║╚═╝║║╚╝║║╚╝║╔═╝║\n			╚═══╝╚═══╝╚══╝╚══╝╚══╝\n			╔══╗╔╗╔╗╔═══╗╔╗──╔╗\n			║╔═╝║║║║║╔══╝║║──║║\n			║╚═╗║╚╝║║╚══╗║║──║║\n			╚═╗║║╔╗║║╔══╝║║──║║\n			╔═╝║║║║║║╚══╗║╚═╗║╚═╗\n			╚══╝╚╝╚╝╚═══╝╚══╝╚══╝\n\n\n");
+	
+	while (1) {	
+		os_sys_write(1, "> ");
 		char buffer[256];
-		int bytes = os_sys_read(buffer, sizeof(buffer));
+		int bytes = os_sys_read(0, buffer, sizeof(buffer));
 		if (!bytes) {
 			break;
 		}
@@ -158,6 +179,6 @@ void shell(void *args) {
 		}
 	}
 
-	os_sys_write("\n");
+	os_sys_write(1, "\n");
 	os_halt(0);
 }

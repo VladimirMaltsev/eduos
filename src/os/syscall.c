@@ -1,4 +1,3 @@
-
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
@@ -27,6 +26,8 @@ typedef long(*sys_call_t)(int syscall,
 	x(waitpid) \
 	x(exit) \
 	x(wait) \
+	x(get_file_descr) \
+	x(fclose_by_descr) \
 	x(task_id) \
 	x(sem_init) \
 	x(sem_use) \
@@ -47,8 +48,9 @@ static long sys_write(int syscall,
 		unsigned long arg1, unsigned long arg2,
 		unsigned long arg3, unsigned long arg4,
 		void *rest) {
-	const char *msg = (const char *) arg1;
-	return errwrap(write(STDOUT_FILENO, msg, strlen(msg)));
+	int fd = (int) arg1;
+	const char *msg = (const char *) arg2;
+	return errwrap(write(fd, msg, strlen(msg)));
 }
 
 static void read_irq_hnd(void *arg) {
@@ -59,12 +61,13 @@ static long sys_read(int syscall,
 		unsigned long arg1, unsigned long arg2,
 		unsigned long arg3, unsigned long arg4,
 		void *rest) {
-	void *buffer = (void *) arg1;
-	const int size = (int) arg2;
-
+	int fd = (int) arg1;
+	void *buffer = (void *) arg2;
+	const int size = (int) arg3;
+    
 	irqmask_t cur = irq_disable();
 
-	int bytes = errwrap(read(STDIN_FILENO, buffer, size));
+	int bytes = errwrap(read(fd, buffer, size));
 	while (bytes == -EAGAIN) {
 		irq_set_hnd(read_irq_hnd, sched_current());
 		sched_wait();
@@ -121,7 +124,6 @@ static long sys_halt(int syscall,
 		unsigned long arg1, unsigned long arg2,
 		unsigned long arg3, unsigned long arg4,
 		void *rest) {
-
 	exit(arg1);
 
 }
@@ -140,12 +142,10 @@ static long sys_exit(int syscall,
 	remove_task(cur_task);
 	sched_notify(cur_task->parent);
 
+	irq_enable(irq);
 	sched();
 
-	irq_enable(irq);
-
 	return 0;
-
 }
 
 static long sys_wait(int syscall,
@@ -158,13 +158,46 @@ static long sys_wait(int syscall,
 	return 0;
 }
 
+static long sys_get_file_descr(int syscall,
+		unsigned long arg1, unsigned long arg2,
+		unsigned long arg3, unsigned long arg4,
+		void *rest) {
+
+	char *path = (char *) arg1;
+	char *mode = (char *) arg2;
+	
+	int d = fileno(fopen(path, mode));
+	
+	return d;
+}
+
+static long sys_fclose_by_descr(int syscall,
+	unsigned long arg1, unsigned long arg2,
+	unsigned long arg3, unsigned long arg4,
+	void *rest) {
+		
+	return close((int)arg1);
+}
+  
 static long sys_task_id(int syscall,
 		unsigned long arg1, unsigned long arg2,
 		unsigned long arg3, unsigned long arg4,
 		void *rest) {
-	return sched_user_id(sched_current());
+	return get_task_id(sched_current());
 }
-
+/*
+static long sys_sleep(int sleep) {
+	irqmask_t cur = irq_disable();
+	struct_current()->timer.ticks_left = sleep * 1000;
+	wait();
+	sched();
+	int time = get_time();
+	while (get_time() < time + sleep){
+		sched();
+	}
+	irq_enable(cur);
+}
+*/
 static long sys_sem_init(int syscall,
 		unsigned long arg1, unsigned long arg2,
 		unsigned long arg3, unsigned long arg4,
@@ -186,6 +219,8 @@ static long sys_sem_free(int syscall,
 	return sem_free(arg1);
 }
 
+
+
 #define TABLE_LIST(name) sys_ ## name,
 static const sys_call_t sys_table[] = {
 	SYSCALL_X(TABLE_LIST)
@@ -206,13 +241,20 @@ static long os_syscall(int syscall,
 	return ret;
 }
 
-int os_sys_write(const char *msg) {
-	return os_syscall(os_syscall_nr_write, (unsigned long) msg, 0, 0, 0, NULL);
+int os_sys_write(int fd, const char *msg) {
+	return os_syscall(os_syscall_nr_write, fd, (unsigned long) msg, 0, 0, NULL);
 }
 
-int os_sys_read(char *buffer, int size) {
-	return os_syscall(os_syscall_nr_read, (unsigned long) buffer, size,
-			0, 0, NULL);
+int os_sys_read(int fd, char *buffer, int size) {
+	return os_syscall(os_syscall_nr_read, fd, (unsigned long) buffer, size, 0, NULL);
+}
+
+int os_get_file_descr(const char *path, const char *mode) {
+	return os_syscall(os_syscall_nr_get_file_descr, (unsigned long) path, (unsigned long) mode, 0, 0, NULL);
+}
+
+int os_fclose_by_descr(int fd) {
+	return os_syscall(os_syscall_nr_fclose_by_descr, fd, 0, 0, 0, NULL);
 }
 
 int os_clone(void (*fn) (void *arg), void *arg) {
