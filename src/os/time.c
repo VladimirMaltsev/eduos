@@ -53,19 +53,20 @@ void decrement_timers_and_notify(long delta) {
 void top_half() {
 	if(TAILQ_EMPTY(&timers.head))
 		last_time = INTERVAL_SEC*USEC_IN_SEC + INTERVAL_USEC;
-	else
-		last_time = TAILQ_FIRST(&timers.head)->usec_left;
+	else {
+		struct timer *first = TAILQ_FIRST(&timers.head);
+		last_time = first->usec_left;
+		first->usec_left = 0;
+		sched_notify(first->task);
+		TAILQ_REMOVE(&timers.head, first, link);
+	}
 	uptime += last_time;	
 
-	//if there is no second timer, then set default interval
 	if(TAILQ_EMPTY(&timers.head)) {
 		set_timer_repeat(INTERVAL_SEC, INTERVAL_USEC);
 	} else {
-		struct timer *second = TAILQ_NEXT(TAILQ_FIRST(&timers.head), link);
-		if (second == NULL)
-			set_timer_repeat(INTERVAL_SEC, INTERVAL_USEC);
-		else 
-			set_timer_once(second->usec_left / USEC_IN_SEC, second->usec_left % USEC_IN_SEC);
+		struct timer *first = TAILQ_FIRST(&timers.head);
+		set_timer_once(first->usec_left / USEC_IN_SEC, first->usec_left % USEC_IN_SEC);
 	}
 }
 
