@@ -1,8 +1,9 @@
 
 #include <string.h>
 #include <stdio.h>
-
 #include <stdbool.h>
+#include <fcntl.h>
+
 
 #include "os.h"
 #include "os/filesys.h"
@@ -36,10 +37,15 @@ static int uptime(int argc, char *argv[]) {
 static int cat(int argc, char *argv[]) {
 	for (int i = 1; i < argc; i ++) {
 		char *file_name = argv[i];
-		char path[256];
-		get_absolute_path(file_name, path);
 
-		int fd = os_get_file_descr(path, "r");
+		int fd;
+		if ((fd = os_get_file_descr(file_name, O_RDONLY)) == -1) {
+			os_sys_write(1, "Cannot open ");
+			os_sys_write(1, file_name);
+			os_sys_write(1, "\n");
+			continue;
+		}
+		
 		char buff[256];
 		int bytes;
 		
@@ -152,7 +158,6 @@ static void do_task(void *args) {
 }
 
 void shell(void *args) {
-	
 	while (1) {	
 		os_sys_write(1, "> ");
 		char buffer[256];

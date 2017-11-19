@@ -6,12 +6,16 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include "os.h"
 #include "os/sched.h"
 #include "os/irq.h"
 #include "os/sem.h"
 #include "os/syscall.h"
+#include "os/filesys.h"
 
 typedef long(*sys_call_t)(int syscall,
 		unsigned long arg1, unsigned long arg2,
@@ -163,10 +167,13 @@ static long sys_get_file_descr(int syscall,
 		unsigned long arg3, unsigned long arg4,
 		void *rest) {
 
-	char *path = (char *) arg1;
-	char *mode = (char *) arg2;
+	char *file_name = (char *) arg1;
+	int flags = (int) arg2;
 	
-	int d = fileno(fopen(path, mode));
+	char path [256];
+	get_absolute_path(file_name, path);
+	
+	int d = open(path, flags);
 	
 	return d;
 }
@@ -237,8 +244,8 @@ int os_sys_read(int fd, char *buffer, int size) {
 	return os_syscall(os_syscall_nr_read, fd, (unsigned long) buffer, size, 0, NULL);
 }
 
-int os_get_file_descr(const char *path, const char *mode) {
-	return os_syscall(os_syscall_nr_get_file_descr, (unsigned long) path, (unsigned long) mode, 0, 0, NULL);
+int os_get_file_descr(const char *file_name, int flags) {
+	return os_syscall(os_syscall_nr_get_file_descr, (unsigned long) file_name, (unsigned long) flags, 0, 0, NULL);
 }
 
 int os_fclose_by_descr(int fd) {
