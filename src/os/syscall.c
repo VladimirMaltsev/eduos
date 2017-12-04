@@ -1,4 +1,3 @@
-
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
@@ -7,6 +6,9 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include "os.h"
 #include "os/sched.h"
@@ -15,6 +17,7 @@
 #include "os/syscall.h"
 #include "os/time.h"
 #include "util.h"
+#include "os/filesys.h"
 
 typedef long(*sys_call_t)(int syscall,
 		unsigned long arg1, unsigned long arg2,
@@ -70,7 +73,6 @@ static long sys_read(int syscall,
 	int fd = (int) arg1;
 	void *buffer = (void *) arg2;
 	const int size = (int) arg3;
-    
 	irqmask_t cur = irq_disable();
 
 	int bytes = errwrap(read(fd, buffer, size));
@@ -148,6 +150,7 @@ static long sys_exit(int syscall,
 	remove_task_from_queue(cur_task);
 	sched_notify(cur_task->parent);
 
+	sched();
 	irq_enable(irq);
 	sched();
 
@@ -169,11 +172,14 @@ static long sys_get_file_descr(int syscall,
 		unsigned long arg3, unsigned long arg4,
 		void *rest) {
 
-	char *path = (char *) arg1;
-	char *mode = (char *) arg2;
-	
-	int d = fileno(fopen(path, mode));
-	
+	char *file_name = (char *) arg1;
+	int flags = (int) arg2;
+
+	char path [256];
+	get_absolute_path(file_name, path);
+
+	int d = open(path, flags);
+
 	return d;
 }
 
@@ -181,10 +187,10 @@ static long sys_fclose_by_descr(int syscall,
 	unsigned long arg1, unsigned long arg2,
 	unsigned long arg3, unsigned long arg4,
 	void *rest) {
-		
+
 	return close((int)arg1);
 }
-  
+
 static long sys_task_id(int syscall,
 		unsigned long arg1, unsigned long arg2,
 		unsigned long arg3, unsigned long arg4,
@@ -243,7 +249,6 @@ static long sys_uptime(int syscall,
 	return t;
 }
 
-
 #define TABLE_LIST(name) sys_ ## name,
 static const sys_call_t sys_table[] = {
 	SYSCALL_X(TABLE_LIST)
@@ -272,8 +277,8 @@ int os_sys_read(int fd, char *buffer, int size) {
 	return os_syscall(os_syscall_nr_read, fd, (unsigned long) buffer, size, 0, NULL);
 }
 
-int os_get_file_descr(const char *path, const char *mode) {
-	return os_syscall(os_syscall_nr_get_file_descr, (unsigned long) path, (unsigned long) mode, 0, 0, NULL);
+int os_get_file_descr(const char *file_name, int flags) {
+	return os_syscall(os_syscall_nr_get_file_descr, (unsigned long) file_name, (unsigned long) flags, 0, 0, NULL);
 }
 
 int os_fclose_by_descr(int fd) {

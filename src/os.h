@@ -15,7 +15,7 @@ extern int os_exit(int status);
 
 extern int os_wait(void);
 
-extern int os_get_file_descr(const char *path, const char *mode);
+extern int os_get_file_descr(const char *path, int flags);
 
 extern int os_fclose_by_descr(int fd);
 

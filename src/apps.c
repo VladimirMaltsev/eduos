@@ -1,11 +1,12 @@
 #define _POSIX_SOURCE
 #include <string.h>
 #include <stdio.h>
-
 #include <stdbool.h>
+#include <fcntl.h>
+
 
 #include "os.h"
-
+#include "os/filesys.h"
 #include "apps.h"
 #include <inttypes.h>
 
@@ -32,7 +33,34 @@ static int uptime(int argc, char *argv[]) {
 	double uptime = (double) os_uptime() / 1000000;
 	snprintf(time_string, ARRAY_SIZE(time_string), "%f", uptime);
 	strcat(time_string, "\n");
-	os_sys_write(time_string);
+	os_sys_write(1, time_string);
+	return 0;
+}
+
+static int cat(int argc, char *argv[]) {
+	for (int i = 1; i < argc; i ++) {
+		char *file_name = argv[i];
+
+		int fd;
+		if ((fd = os_get_file_descr(file_name, O_RDONLY)) == -1) {
+			os_sys_write(1, "Cannot open ");
+			os_sys_write(1, file_name);
+			os_sys_write(1, "\n");
+			continue;
+		}
+
+		char buff[256];
+		int bytes;
+
+		while ((bytes = os_sys_read(fd, buff, sizeof(buff)))) {
+			if (bytes < sizeof(buff)) {
+				buff[bytes] = '\0';
+			}
+			os_sys_write(1, buff);
+		}
+
+		os_fclose_by_descr (fd);
+	}
 	return 0;
 }
 
@@ -149,9 +177,7 @@ static void do_task(void *args) {
 }
 
 void shell(void *args) {
-	//os_sys_write(1, "\n\n			╔═══╗╔══╗─╔╗╔╗╔══╗╔══╗\n			║╔══╝║╔╗╚╗║║║║║╔╗║║╔═╝\n			║╚══╗║║╚╗║║║║║║║║║║╚═╗\n			║╔══╝║║─║║║║║║║║║║╚═╗║\n			║╚══╗║╚═╝║║╚╝║║╚╝║╔═╝║\n			╚═══╝╚═══╝╚══╝╚══╝╚══╝\n			╔══╗╔╗╔╗╔═══╗╔╗──╔╗\n			║╔═╝║║║║║╔══╝║║──║║\n			║╚═╗║╚╝║║╚══╗║║──║║\n			╚═╗║║╔╗║║╔══╝║║──║║\n			╔═╝║║║║║║╚══╗║╚═╗║╚═╗\n			╚══╝╚╝╚╝╚═══╝╚══╝╚══╝\n\n\n");
-	
-	while (1) {	
+	while (1) {
 		os_sys_write(1, "> ");
 		char buffer[256];
 		int bytes = os_sys_read(0, buffer, sizeof(buffer));
